@@ -1,0 +1,1714 @@
+// Theme Engine, I18n & Core State
+
+const STORAGE_KEY_THEME = 'knihovnicek_theme';
+const STORAGE_KEY_LANG = 'knihovnicek_lang';
+const STORAGE_KEY_BOOKS = 'knihovnicek_books';
+const STORAGE_KEY_REVIEWS = 'knihovnicek_reviews';
+const STORAGE_KEY_FOLLOWS = 'knihovnicek_follows';
+const STORAGE_KEY_USER = 'knihovnicek_user';
+
+let html5QrCode = null;
+let isScannerRunning = false;
+let isProcessingScan = false;
+let currentScannedBook = null;
+
+// Array of inspiring literary quotes for cycling on banner click
+const LITERARY_QUOTES = [
+  { text_cs: "„Kniha musí být sekerou na zamrzlé moře v nás.“", text_pl: "„Książka musi być siekierą na zamarznięte morze w nas.”", text_en: "“A book must be the axe for the frozen sea within us.”", author: "— Franz Kafka" },
+  { text_cs: "„Nemilovat knihy znamená nemilovat moudrost. Nemilovat moudrost však znamená stávat se hluprákem.“", text_pl: "„Nie kochać książek to nie kochać mądrości.”", text_en: "“Not to love books is not to love wisdom.”", author: "— Jan Amos Komenský" },
+  { text_cs: "„Sober sobě světlem, člověče, a čti knihy.“", text_pl: "„Bądź sobie światłem i czytaj książki.”", text_en: "“Be a light unto yourself and read books.”", author: "— Karel Čapek" },
+  { text_cs: "„Dobré knihy neprozradí všechna svá tajemství najednou.“", text_pl: "„Dobre książki nie zdradzają wszystkich swoich sekretów naraz.”", text_en: "“Good books do not surrender all their secrets at once.”", author: "— Stephen King" },
+  { text_cs: "„Dům bez knih je jako tělo bez duše.“", text_pl: "„Dom bez książek jest jak ciało bez duszy.”", text_en: "“A room without books is like a body without a soul.”", author: "— Marcus Tullius Cicero" }
+];
+let currentQuoteIndex = 0;
+
+function cycleQuote() {
+  currentQuoteIndex = (currentQuoteIndex + 1) % LITERARY_QUOTES.length;
+  updateBannerQuoteDisplay();
+}
+
+function updateBannerQuoteDisplay() {
+  const lang = getCurrentLang();
+  const quote = LITERARY_QUOTES[currentQuoteIndex];
+  const qText = quote[`text_${lang}`] || quote.text_cs;
+
+  const textElem = document.getElementById('banner-quote-text');
+  const authorElem = document.getElementById('banner-quote-author');
+
+  if (textElem) textElem.innerText = qText;
+  if (authorElem) authorElem.innerText = quote.author;
+}
+
+// Czech alphabet sequence for jump navigation
+const CZECH_ALPHABET = ['A','B','C','Č','D','E','F','G','H','CH','I','J','K','L','M','N','O','P','R','Ř','S','Š','T','U','V','W','X','Y','Z','Ž'];
+
+// Translation Dictionary (Czech, Polish, English)
+const TRANSLATIONS = {
+  cs: {
+    quote_text: "„Kniha musí být sekerou na zamrzlé moře v nás.“",
+    quote_author: "— Franz Kafka",
+    not_logged_in: "Nejste přihlášeni",
+    logged_in_as: "Přihlášen jako",
+    login_btn: "Přihlásit se",
+    logout_btn: "Odhlásit",
+    menu_scan_title: "Skenovat / Zadat ISBN",
+    menu_scan_desc: "Naskenujte kód fotoaparátem nebo zadejte ručně",
+    menu_library_title: "Moje Knihovna",
+    menu_library_desc: "Prohlížet a vyhledávat uložené knihy",
+    menu_recommended_title: "Doporučené knihy",
+    menu_recommended_desc: "Doporučené tituly, hodnocení a recenze",
+    menu_social_title: "Sledování & Přátelé",
+    menu_social_desc: "Sledování účtů a pozvánky do aplikace",
+    menu_settings_title: "Nastavení",
+    menu_settings_desc: "Vzhled, jazyk a možnosti aplikace",
+    btn_back: "ZPĚT",
+    scanner_header: "Skener & Zadání ISBN",
+    camera_loading: "Načítám fotoaparát...",
+    toggle_camera: "Vypnout / Zapnout kameru",
+    or_manual: "nebo zadejte ručně",
+    isbn_label: "Číslo ISBN nebo EAN kód:",
+    search_btn: "Hledat",
+    isbn_hint: "Podporuje ISBN-10 i ISBN-13 (i s pomlčkami)",
+    library_header: "Moje Knihovna",
+    search_placeholder: "Hledat knihu dle názvu...",
+    books_count_label: "knih",
+    copy_link_btn: "Kopírovat odkaz",
+    recommended_header: "Doporučené knihy",
+    recommended_card_title: "Vybraná doporučená literatura",
+    recommended_card_desc: "Prohlédněte si výběr klasik, ohodnoťte je 1-5 hvězdičkami a přidejte svůj slovní komentář!",
+    social_header: "Sledování & Přátelé",
+    invite_card_title: "Pozvat přátele do aplikace",
+    invite_card_desc: "Sdílejte odkaz na aplikaci se svými kolegy knihovníky a přáteli.",
+    invite_btn: "Pozvat přátele (Kopírovat odkaz)",
+    follow_card_title: "Doporučené knihovnické účty k sledování",
+    follow_card_desc: "Sledujte ostatní čtenáře a inspirujte se jejich knihovnou.",
+    settings_header: "Nastavení",
+    setting_theme_title: "Režim zobrazení",
+    setting_lang_title: "Jazyk aplikace",
+    setting_lang_desc: "Vyberte preferovaný jazyk rozhraní",
+    setting_security_title: "Google Přihlášení & Zabezpečení",
+    setting_security_desc: "Pro běh Google OAuth na vaší doméně GitHub Pages přidejte URL vaší stránky (např. https://username.github.io) do Google Cloud Console -> Credentials -> Authorized JavaScript origins.",
+    setting_app_info: "Informace o aplikaci",
+    theme_dark: "Tmavý režim",
+    theme_light: "Světlý režim",
+    login_modal_title: "Přihlášení do aplikace",
+    login_modal_desc: "Přihlaste se pomocí svého Google účtu pro synchronizaci a správu knihovny.",
+    or_quick_demo: "nebo demo přihlášení",
+    btn_close: "Zavřít",
+    book_found_title: "Nalezená kniha",
+    duplicate_warning_text: "Tato kniha už je ve vaší knihovně!",
+    loading_text: "Vyhledávám knihu v databázích...",
+    error_title: "Vyskytl se problém",
+    error_unfound: "Vyskytl se problém a nelze knihu načíst.",
+    error_return_btn: "Rozumím - Návrat na Hlavní menu",
+    add_review_label: "Přidat hodnocení a komentář:",
+    write_comment_placeholder: "Napište svůj slovní komentář...",
+    submit_review_btn: "Odeslat hodnocení",
+    user_reviews_label: "Uživatelská hodnocení:",
+    no_reviews_yet: "Zatím žádná hodnocení. Buďte první!",
+    empty_library_title: "Vaše knihovna je zatím prázdná",
+    empty_library_desc: "Přidejte první knihy naskenováním čárového kódu nebo zadáním ISBN.",
+    scan_first_book_btn: "Skenovat knihu",
+    no_search_results: "Žádné výsledky"
+  },
+  pl: {
+    quote_text: "„Książka musi być siekierą na zamarznięte morze w nas.”",
+    quote_author: "— Franz Kafka",
+    not_logged_in: "Nie jesteś zalogowany",
+    logged_in_as: "Zalogowany jako",
+    login_btn: "Zaloguj się",
+    logout_btn: "Wyloguj",
+    menu_scan_title: "Skanuj / Wpisz ISBN",
+    menu_scan_desc: "Zeskanuj kod aparatem lub wpisz ręcznie",
+    menu_library_title: "Moja Biblioteka",
+    menu_library_desc: "Przeglądaj i wyszukuj zapisane książki",
+    menu_recommended_title: "Polecane książki",
+    menu_recommended_desc: "Polecane tytuły, oceny i recenzje",
+    menu_social_title: "Obserwowani i Znajomi",
+    menu_social_desc: "Obserwowanie kont i zapraszanie znajomych",
+    menu_settings_title: "Ustawienia",
+    menu_settings_desc: "Wygląd, język i opcje aplikacji",
+    btn_back: "POWRÓT",
+    scanner_header: "Skaner i Wprowadzanie ISBN",
+    camera_loading: "Ładowanie aparatu...",
+    toggle_camera: "Włącz / Wyłącz aparat",
+    or_manual: "lub wpisz ręcznie",
+    isbn_label: "Numer ISBN lub kod EAN:",
+    search_btn: "Szukaj",
+    isbn_hint: "Obsługuje ISBN-10 oraz ISBN-13",
+    library_header: "Moja Biblioteka",
+    search_placeholder: "Szukaj książki po tytule...",
+    books_count_label: "książek",
+    copy_link_btn: "Kopiuj link",
+    recommended_header: "Polecane książki",
+    recommended_card_title: "Wybrana literatura polecana",
+    recommended_card_desc: "Przejrzyj klasykę, oceń w skali 1-5 gwiazdek i dodaj komentarz!",
+    social_header: "Obserwowani i Znajomi",
+    invite_card_title: "Zaproś znajomych do aplikacji",
+    invite_card_desc: "Udostępnij link do aplikacji bibliotekarzom i znajomym.",
+    invite_btn: "Zaproś znajomych (Kopiuj link)",
+    follow_card_title: "Polecane konta biblioteczne",
+    follow_card_desc: "Obserwuj innych czytelników i inspiruj się ich biblioteką.",
+    settings_header: "Ustawienia",
+    setting_theme_title: "Tryb wyświetlania",
+    setting_lang_title: "Język aplikacji",
+    setting_lang_desc: "Wybierz preferowany język interfejsu",
+    setting_security_title: "Google Logowanie i Bezpieczeństwo",
+    setting_security_desc: "Aby Google OAuth działało na GitHub Pages, dodaj URL strony w Google Cloud Console -> Credentials -> Authorized JavaScript origins.",
+    setting_app_info: "Informacje o aplikacji",
+    theme_dark: "Tryb ciemny",
+    theme_light: "Tryb jasny",
+    login_modal_title: "Logowanie do aplikacji",
+    login_modal_desc: "Zaloguj się kontem Google, aby synchronizować bibliotekę.",
+    or_quick_demo: "lub logowanie demo",
+    btn_close: "Zamknij",
+    book_found_title: "Znaleziona książka",
+    duplicate_warning_text: "Ta książka jest już w Twojej bibliotece!",
+    loading_text: "Wyszukiwanie książki w bazach...",
+    error_title: "Wystąpił problem",
+    error_unfound: "Wystąpił problem i nie można wczytać książki.",
+    error_return_btn: "Rozumiem - Powrót do menu głównego",
+    add_review_label: "Dodaj ocenę i komentarz:",
+    write_comment_placeholder: "Napisz swój komentarz...",
+    submit_review_btn: "Wyślij ocenę",
+    user_reviews_label: "Oceny użytkowników:",
+    no_reviews_yet: "Brak ocen. Bądź pierwszy!",
+    empty_library_title: "Twoja biblioteka jest pusta",
+    empty_library_desc: "Dodaj pierwsze książki, skanując kod kreskowy lub wpisując ISBN.",
+    scan_first_book_btn: "Zeskanuj książkę",
+    no_search_results: "Brak wyników"
+  },
+  en: {
+    quote_text: "“A book must be the axe for the frozen sea within us.”",
+    quote_author: "— Franz Kafka",
+    not_logged_in: "Not logged in",
+    logged_in_as: "Logged in as",
+    login_btn: "Log in",
+    logout_btn: "Log out",
+    menu_scan_title: "Scan / Enter ISBN",
+    menu_scan_desc: "Scan barcode with camera or enter manually",
+    menu_library_title: "My Library",
+    menu_library_desc: "Browse and search saved books",
+    menu_recommended_title: "Recommended Books",
+    menu_recommended_desc: "Featured titles, ratings and reviews",
+    menu_social_title: "Following & Friends",
+    menu_social_desc: "Follow accounts and invite friends",
+    menu_settings_title: "Settings",
+    menu_settings_desc: "Appearance, language, and app options",
+    btn_back: "BACK",
+    scanner_header: "Scanner & ISBN Input",
+    camera_loading: "Loading camera...",
+    toggle_camera: "Turn Camera Off / On",
+    or_manual: "or enter manually",
+    isbn_label: "ISBN or EAN barcode number:",
+    search_btn: "Search",
+    isbn_hint: "Supports ISBN-10 and ISBN-13 (with hyphens)",
+    library_header: "My Library",
+    search_placeholder: "Search book by title...",
+    books_count_label: "books",
+    copy_link_btn: "Copy link",
+    recommended_header: "Recommended Books",
+    recommended_card_title: "Curated Classics",
+    recommended_card_desc: "Explore classics, rate them 1-5 stars, and leave a written review!",
+    social_header: "Following & Friends",
+    invite_card_title: "Invite friends to the app",
+    invite_card_desc: "Share the app link with librarians and fellow readers.",
+    invite_btn: "Invite friends (Copy link)",
+    follow_card_title: "Recommended Library Accounts",
+    follow_card_desc: "Follow fellow readers and get inspired by their collection.",
+    settings_header: "Settings",
+    setting_theme_title: "Display Mode",
+    setting_lang_title: "App Language",
+    setting_lang_desc: "Select preferred interface language",
+    setting_security_title: "Google Sign-In & Security",
+    setting_security_desc: "To run Google OAuth on GitHub Pages, add your URL (e.g. https://username.github.io) in Google Cloud Console -> Credentials -> Authorized JavaScript origins.",
+    setting_app_info: "App Information",
+    theme_dark: "Dark mode",
+    theme_light: "Light mode",
+    login_modal_title: "Sign in to App",
+    login_modal_desc: "Sign in with your Google account to manage your library.",
+    or_quick_demo: "or quick demo login",
+    btn_close: "Close",
+    book_found_title: "Book Found",
+    duplicate_warning_text: "This book is already in your library!",
+    loading_text: "Searching catalog databases...",
+    error_title: "A problem occurred",
+    error_unfound: "Could not retrieve book details.",
+    error_return_btn: "Understood - Return to Main Menu",
+    add_review_label: "Add rating and review:",
+    write_comment_placeholder: "Write your written review...",
+    submit_review_btn: "Submit Review",
+    user_reviews_label: "User Reviews:",
+    no_reviews_yet: "No reviews yet. Be the first!",
+    empty_library_title: "Your library is empty",
+    empty_library_desc: "Add your first books by scanning barcodes or typing ISBN.",
+    scan_first_book_btn: "Scan a book",
+    no_search_results: "No results"
+  }
+};
+
+// Recommended Featured Books with reliable Wikimedia/OpenLibrary public cover images
+const RECOMMENDED_BOOKS = [
+  {
+    id: "rec_1",
+    isbn: "9788020718501",
+    title: "Farma zvířat",
+    author: "George Orwell",
+    publisher: "Odeon",
+    year: "2015",
+    cover: "https://upload.wikimedia.org/wikipedia/commons/7/7e/Animal_Farm_1st_edition.jpg",
+    description: "Alegorický satirický román ukazující formou bajky formy totalitní diktatury."
+  },
+  {
+    id: "rec_2",
+    isbn: "9788073356070",
+    title: "Obraz Doriana Graye",
+    author: "Oscar Wilde",
+    publisher: "Leda",
+    year: "2019",
+    cover: "https://upload.wikimedia.org/wikipedia/commons/2/24/Picture_of_Dorian_Gray_1890.jpg",
+    description: "Příběh mladého muže, jehož krása nevadne, zatímco jeho portrét zachycuje stopy hříchů."
+  },
+  {
+    id: "rec_3",
+    isbn: "9788000035048",
+    title: "Malý princ",
+    author: "Antoine de Saint-Exupéry",
+    publisher: "Albatros",
+    year: "2014",
+    cover: "https://upload.wikimedia.org/wikipedia/commons/7/7d/The_Little_Prince_1943_edition_cover.jpg",
+    description: "Světoznámé filozofické dílo o přátelství, lásce a lidských hodnotách."
+  }
+];
+
+// Pool of 20 realistic Czech reader profiles with libraries and ratings from Knihovny.cz
+const USER_PROFILES_DATABASE = [
+  {
+    id: "user_1",
+    name: "Klára Nováková",
+    handle: "@klara_reads",
+    desc: "Milovnice české klasiky a poezie",
+    avatar: "👩",
+    library: [
+      { title: "Babička", author: "Božena Němcová", year: "2018", publisher: "Albatros", cover: "https://upload.wikimedia.org/wikipedia/commons/2/23/Babicka_Nemcova_1862.jpg", rating: 5, review: "Nádherná srdcová záležitost!" },
+      { title: "Máj", author: "Karel Hynek Mácha", year: "2015", publisher: "Odeon", cover: "https://upload.wikimedia.org/wikipedia/commons/e/e3/Karel_Hynek_M%C3%A1cha_Maj_1836.jpg", rating: 5, review: "Vrchol české romantiky." },
+      { title: "R.U.R.", author: "Karel Čapek", year: "2020", publisher: "Leda", cover: "https://upload.wikimedia.org/wikipedia/commons/d/da/Capek_RUR_1920.jpg", rating: 4, review: "Prorocké dílo o robotech." }
+    ]
+  },
+  {
+    id: "user_2",
+    name: "Martin Dvořák",
+    handle: "@martind_knihy",
+    desc: "Knihovník a sběratel scifi",
+    avatar: "👨‍💼",
+    library: [
+      { title: "Farma zvířat", author: "George Orwell", year: "2015", publisher: "Odeon", cover: "https://upload.wikimedia.org/wikipedia/commons/7/7e/Animal_Farm_1st_edition.jpg", rating: 5, review: "Stále děsivě aktuální." },
+      { title: "Krakatit", author: "Karel Čapek", year: "2019", publisher: "Vyšehrad", cover: "", rating: 4, review: "Napínavý román o nebezpečí vynálezu." },
+      { title: "1984", author: "George Orwell", year: "2017", publisher: "Argo", cover: "", rating: 5, review: "Geniální vize totalitního světa." }
+    ]
+  },
+  {
+    id: "user_3",
+    name: "Lucie Svobodová",
+    handle: "@lucka_knihomolka",
+    desc: "Čtu 50 knih ročně | Recenze a tipy",
+    avatar: "👩‍🦰",
+    library: [
+      { title: "Malý princ", author: "Antoine de Saint-Exupéry", year: "2014", publisher: "Albatros", cover: "https://upload.wikimedia.org/wikipedia/commons/7/7d/The_Little_Prince_1943_edition_cover.jpg", rating: 5, review: "To podstatné je očím neviditelné." },
+      { title: "Obraz Doriana Graye", author: "Oscar Wilde", year: "2019", publisher: "Leda", cover: "https://upload.wikimedia.org/wikipedia/commons/2/24/Picture_of_Dorian_Gray_1890.jpg", rating: 5, review: "Fascinující hluboký psychologický příběh." },
+      { title: "Pygmalion", author: "George Bernard Shaw", year: "2016", publisher: "Artur", cover: "", rating: 4, review: "Vtipná a poučná divadelní hra." }
+    ]
+  },
+  {
+    id: "user_4",
+    name: "Jan Černý",
+    handle: "@honza_ctu",
+    desc: "Historie, filozofie a životopisy",
+    avatar: "🧔",
+    library: [
+      { title: "Osudy dobrého vojáka Švejka", author: "Jaroslav Hašek", year: "2012", publisher: "Leda", cover: "", rating: 5, review: "Nesmrtelná česká satira!" },
+      { title: "Proměna", author: "Franz Kafka", year: "2018", publisher: "Odeon", cover: "", rating: 4, review: "Absurdní klenot světové literatury." }
+    ]
+  },
+  {
+    id: "user_5",
+    name: "Tereza Procházková",
+    handle: "@terka_lit",
+    desc: "Studentka bohemistiky na UK",
+    avatar: "👩‍🎓",
+    library: [
+      { title: "Krysař", author: "Viktor Dyk", year: "2017", publisher: "Městská knihovna v Praze", cover: "", rating: 5, review: "Úžasná baladická atmosféra." },
+      { title: "Spalovač mrtvol", author: "Ladislav Fuks", year: "2021", publisher: "Odeon", cover: "", rating: 5, review: "Mistrovský psychologický horor." }
+    ]
+  },
+  {
+    id: "user_6",
+    name: "Petr Kučera",
+    handle: "@petr_kucera_knihy",
+    desc: "Vášnivý čtenář detektivek",
+    avatar: "👨",
+    library: [
+      { title: "Pes baskervillský", author: "Arthur Conan Doyle", year: "2016", publisher: "Odeon", cover: "", rating: 5, review: "Nejlepší Sherlock Holmes!" },
+      { title: "Vražda v Orient-expressu", author: "Agatha Christie", year: "2020", publisher: "Knižní klub", cover: "", rating: 5, review: "Geniální zápletka i rozuzlení." }
+    ]
+  },
+  {
+    id: "user_7",
+    name: "Michaela Veselá",
+    handle: "@misa_knihy",
+    desc: "Doporučení pro dlouhé večery",
+    avatar: "👱‍♀️",
+    library: [
+      { title: "Jana Eyrová", author: "Charlotte Brontëová", year: "2018", publisher: "Odeon", cover: "", rating: 5, review: "Krásný romantický příběh." },
+      { title: "Pýcha a předsudek", author: "Jane Austenová", year: "2019", publisher: "Leda", cover: "", rating: 5, review: "Nezapomenutelná klasika." }
+    ]
+  },
+  {
+    id: "user_8",
+    name: "Tomáš Mareš",
+    handle: "@tomas_mares",
+    desc: "Knihy o cestování a přírodě",
+    avatar: "👨‍🌾",
+    library: [
+      { title: "Stařec a moře", author: "Ernest Hemingway", year: "2015", publisher: "Odeon", cover: "", rating: 5, review: "Síla lidského ducha a odhodlání." },
+      { title: "Na cestě", author: "Jack Kerouac", year: "2017", publisher: "Argo", cover: "", rating: 4, review: "Kultovní bible beatníků." }
+    ]
+  },
+  {
+    id: "user_9",
+    name: "Veronika Horáková",
+    handle: "@verca_books",
+    desc: "Fantasy a dobrodružná literatura",
+    avatar: "👩‍🎨",
+    library: [
+      { title: "Hobit", author: "J. R. R. Tolkien", year: "2018", publisher: "Argo", cover: "", rating: 5, review: "Začátek celého úžasného světa." },
+      { title: "Pán prstenů: Společenstvo Prstenu", author: "J. R. R. Tolkien", year: "2019", publisher: "Argo", cover: "", rating: 5, review: "Absolutní vrchol fantasy zánru." }
+    ]
+  },
+  {
+    id: "user_10",
+    name: "David Pokorný",
+    handle: "@david_knihovnik",
+    desc: "Vedoucí krajské knihovny",
+    avatar: "👨‍🏫",
+    library: [
+      { title: "Válka s Mloky", author: "Karel Čapek", year: "2018", publisher: "Vyšehrad", cover: "", rating: 5, review: "Nadčasové varování lidstvu." },
+      { title: "Bílá nemoc", author: "Karel Čapek", year: "2020", publisher: "Artur", cover: "", rating: 5, review: "Strhující protiválečné drama." }
+    ]
+  },
+  {
+    id: "user_11",
+    name: "Barbora Šimková",
+    handle: "@bara_reads",
+    desc: "Miluji českou meziválečnou tvorbu",
+    avatar: "👩‍🦱",
+    library: [
+      { title: "Bylo nás pět", author: "Karel Poláček", year: "2017", publisher: "Albatros", cover: "", rating: 5, review: "Úžasný humorný pohled na dětství." },
+      { title: "Markéta Lazarová", author: "Vladislav Vančura", year: "2016", publisher: "Odeon", cover: "", rating: 4, review: "Krásný poetický jazyk." }
+    ]
+  },
+  {
+    id: "user_12",
+    name: "Filip Urban",
+    handle: "@filip_urban_knihy",
+    desc: "Recenzent a redaktor",
+    avatar: "👨‍💻",
+    library: [
+      { title: "Zločin a trest", author: "Fjodor Michajlovič Dostojevskij", year: "2019", publisher: "Academia", cover: "", rating: 5, review: "Hluboká psychologická sonda." },
+      { title: "Mistr a Markétka", author: "Michail Bulgakov", year: "2020", publisher: "Vyšehrad", cover: "", rating: 5, review: "Geniální magický realismus." }
+    ]
+  },
+  {
+    id: "user_13",
+    name: "Zuzana Králová",
+    handle: "@zuzka_kralova",
+    desc: "Milovnice historických románů",
+    avatar: "👩‍💼",
+    library: [
+      { title: "Quo vadis", author: "Henryk Sienkiewicz", year: "2015", publisher: "Vyšehrad", cover: "", rating: 5, review: "Strhující obraz starověkého Říma." },
+      { title: "Egypťan Sinuhet", author: "Mika Waltari", year: "2018", publisher: "Odeon", cover: "", rating: 5, review: "Jedna z nejlepších knih mého života." }
+    ]
+  },
+  {
+    id: "user_14",
+    name: "Jakub Beneš",
+    handle: "@kuba_benes",
+    desc: "Čtenář současné i klasické prózy",
+    avatar: "👨‍🎨",
+    library: [
+      { title: "Ostře sledované vlaky", author: "Bohumil Hrabal", year: "2017", publisher: "Mladá fronta", cover: "", rating: 5, review: "Tragikomický příběh z války." },
+      { title: "Obsluhoval jsem anglického krále", author: "Bohumil Hrabal", year: "2019", publisher: "Odeon", cover: "", rating: 5, review: "Krásná poetika Bohumila Hrabala." }
+    ]
+  },
+  {
+    id: "user_15",
+    name: "Simona Fialová",
+    handle: "@simona_fialka",
+    desc: "Učitelka češtiny na gymnáziu",
+    avatar: "👩‍🏫",
+    library: [
+      { title: "Kytice", author: "Karel Jaromír Erben", year: "2020", publisher: "Albatros", cover: "", rating: 5, review: "Základ české poezie." },
+      { title: "Romeo a Julie", author: "William Shakespeare", year: "2018", publisher: "Artur", cover: "", rating: 5, review: "Nesmrtelná tragédie lásky." }
+    ]
+  },
+  {
+    id: "user_16",
+    name: "Ondřej Jelínek",
+    handle: "@ondra_jelinek",
+    desc: "Sběratel starých tisků a prvotisku",
+    avatar: "👨‍🔬",
+    library: [
+      { title: "Labyrint světa a ráj srdce", author: "Jan Amos Komenský", year: "2016", publisher: "Vyšehrad", cover: "", rating: 5, review: "Hluboké alegorické dílo." }
+    ]
+  },
+  {
+    id: "user_17",
+    name: "Eva Růžičková",
+    handle: "@eva_ruzickova",
+    desc: "Poezie, drama a esejistika",
+    avatar: "👩‍🌾",
+    library: [
+      { title: "Slezské písně", author: "Petr Bezruč", year: "2015", publisher: "Odeon", cover: "", rating: 4, review: "Silný sociální náboj." }
+    ]
+  },
+  {
+    id: "user_18",
+    name: "Michal Sedláček",
+    handle: "@michal_sedlacek",
+    desc: "Sci-fi, postapo a komiksy",
+    avatar: "👨‍🚀",
+    library: [
+      { title: "Marťan", author: "Andy Weir", year: "2018", publisher: "Knižní klub", cover: "", rating: 5, review: "Skvěle promyšlené sci-fi survival." }
+    ]
+  },
+  {
+    id: "user_19",
+    name: "Adéla Holubová",
+    handle: "@adela_holubova",
+    desc: "Knihy pro děti a mládež",
+    avatar: "👩‍⚕️",
+    library: [
+      { title: "Povídky z jedné a druhé kapsy", author: "Karel Čapek", year: "2019", publisher: "Leda", cover: "", rating: 5, review: "Báječné detektivní povídky." }
+    ]
+  },
+  {
+    id: "user_20",
+    name: "Václav Kolář",
+    handle: "@vaclav_kolar",
+    desc: "Filozofie a antická literatura",
+    avatar: "👨‍🦳",
+    library: [
+      { title: "Hovory k sobě", author: "Marcus Aurelius", year: "2020", publisher: "Antická knihovna", cover: "", rating: 5, review: "Stojické moudro pro každý den." }
+    ]
+  }
+];
+
+let recommendedAccountOffset = 0;
+
+
+// --- I18N & LANGUAGE ENGINE ---
+
+function getCurrentLang() {
+  return localStorage.getItem(STORAGE_KEY_LANG) || 'cs';
+}
+
+function setLanguage(lang) {
+  if (!TRANSLATIONS[lang]) lang = 'cs';
+  localStorage.setItem(STORAGE_KEY_LANG, lang);
+  document.documentElement.setAttribute('lang', lang);
+
+  const langSelect = document.getElementById('language-select');
+  if (langSelect) langSelect.value = lang;
+
+  // Apply translations to data-i18n elements
+  const t = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(elem => {
+    const key = elem.getAttribute('data-i18n');
+    if (t[key]) {
+      elem.innerText = t[key];
+    }
+  });
+
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(elem => {
+    const key = elem.getAttribute('data-i18n-placeholder');
+    if (t[key]) {
+      elem.placeholder = t[key];
+    }
+  });
+
+  // Update theme text in settings
+  const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+  setTheme(currentTheme);
+
+  // Update quote in banner
+  updateBannerQuoteDisplay();
+
+  updateUserAuthBar();
+}
+
+function handleLanguageChange(event) {
+  const selectedLang = event.target.value;
+  setLanguage(selectedLang);
+  renderLibrary();
+  renderMonthlyBooks();
+  renderSocialAccounts();
+}
+
+
+// --- THEME ENGINE ---
+
+function initTheme() {
+  const savedTheme = localStorage.getItem(STORAGE_KEY_THEME) || 'dark';
+  setTheme(savedTheme);
+}
+
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem(STORAGE_KEY_THEME, theme);
+
+  const switchElem = document.getElementById('theme-toggle-switch');
+  const statusText = document.getElementById('theme-status-text');
+
+  const lang = getCurrentLang();
+  const t = TRANSLATIONS[lang] || TRANSLATIONS.cs;
+
+  if (theme === 'dark') {
+    if (switchElem) switchElem.checked = false;
+    if (statusText) statusText.innerText = t.theme_dark;
+  } else {
+    if (switchElem) switchElem.checked = true;
+    if (statusText) statusText.innerText = t.theme_light;
+  }
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  setTheme(newTheme);
+}
+
+function handleThemeToggleChange(event) {
+  const newTheme = event.target.checked ? 'light' : 'dark';
+  setTheme(newTheme);
+}
+
+
+// --- NAVIGATION ENGINE ---
+
+function navigateTo(screenId) {
+  const screens = document.querySelectorAll('.screen');
+  screens.forEach(screen => screen.classList.remove('active'));
+
+  const targetScreen = document.getElementById(screenId);
+  if (targetScreen) {
+    targetScreen.classList.add('active');
+  }
+
+  if (screenId === 'screen-scanner') {
+    startCameraScanner();
+  } else {
+    stopCameraScanner();
+  }
+
+  if (screenId === 'screen-library') {
+    renderLibrary();
+  } else if (screenId === 'screen-monthly-books') {
+    renderMonthlyBooks();
+  } else if (screenId === 'screen-social') {
+    renderSocialAccounts();
+  }
+
+  updateMenuBookCount();
+  window.scrollTo(0, 0);
+}
+
+function stopScannerAndGoHome() {
+  stopCameraScanner();
+  navigateTo('screen-main-menu');
+}
+
+
+// --- BARCODE CAMERA SCANNER ---
+
+function startCameraScanner() {
+  const statusElem = document.getElementById('camera-status');
+  if (typeof Html5Qrcode === 'undefined') {
+    if (statusElem) statusElem.innerText = 'Načítám skener...';
+    setTimeout(startCameraScanner, 500);
+    return;
+  }
+
+  if (isScannerRunning) return;
+
+  if (!html5QrCode) {
+    html5QrCode = new Html5Qrcode("reader");
+  }
+
+  const config = {
+    fps: 10,
+    qrbox: { width: 260, height: 160 },
+    aspectRatio: 1.33333
+  };
+
+  html5QrCode.start(
+    { facingMode: "environment" },
+    config,
+    onBarcodeScanned,
+    onBarcodeScanError
+  ).then(() => {
+    isScannerRunning = true;
+    if (statusElem) statusElem.innerText = 'Namiřte fotoaparát na čárový kód (ISBN)';
+  }).catch(err => {
+    console.warn("Camera start failed:", err);
+    isScannerRunning = false;
+    if (statusElem) statusElem.innerText = 'Fotoaparát nedostupný. Použijte ruční zadání ISBN.';
+  });
+}
+
+function stopCameraScanner() {
+  if (html5QrCode && isScannerRunning) {
+    html5QrCode.stop().then(() => {
+      isScannerRunning = false;
+      const statusElem = document.getElementById('camera-status');
+      if (statusElem) statusElem.innerText = 'Fotoaparát vypnut.';
+    }).catch(err => {
+      isScannerRunning = false;
+    });
+  }
+}
+
+function toggleCamera() {
+  if (isScannerRunning) {
+    stopCameraScanner();
+  } else {
+    startCameraScanner();
+  }
+}
+
+function onBarcodeScanned(decodedText, decodedResult) {
+  if (isProcessingScan) return;
+  const cleanIsbn = normalizeIsbn(decodedText);
+  if (isValidIsbn(cleanIsbn)) {
+    isProcessingScan = true;
+    if (navigator.vibrate) navigator.vibrate(100);
+    processIsbnSearch(cleanIsbn);
+  }
+}
+
+function onBarcodeScanError(errorMessage) {}
+
+function normalizeIsbn(inputStr) {
+  if (!inputStr) return '';
+  return inputStr.replace(/[^0-9Xx]/g, '').toUpperCase();
+}
+
+function isValidIsbn(isbn) {
+  const clean = normalizeIsbn(isbn);
+  return clean.length === 10 || clean.length === 13;
+}
+
+function handleManualIsbnSubmit(event) {
+  event.preventDefault();
+  const inputElem = document.getElementById('isbn-input');
+  const cleanIsbn = normalizeIsbn(inputElem.value);
+
+  if (!cleanIsbn || !isValidIsbn(cleanIsbn)) {
+    alert("Zadané číslo neni platné ISBN.");
+    return;
+  }
+
+  processIsbnSearch(cleanIsbn);
+}
+
+
+// --- BOOK LOOKUP ENGINE ---
+
+async function processIsbnSearch(isbn) {
+  const lang = getCurrentLang();
+  const t = TRANSLATIONS[lang] || TRANSLATIONS.cs;
+  showLoadingModal(t.loading_text);
+
+  try {
+    let book = await fetchBookFromKnihovnyCz(isbn);
+
+    if (!book || !book.title) {
+      const fallbackBook = await fetchBookFromGoogleBooks(isbn);
+      if (fallbackBook && fallbackBook.title) {
+        book = mergeBookData(book, fallbackBook);
+      }
+    }
+
+    if (!book || !book.title) {
+      const openLibBook = await fetchBookFromOpenLibrary(isbn);
+      if (openLibBook && openLibBook.title) {
+        book = mergeBookData(book, openLibBook);
+      }
+    }
+
+    hideLoadingModal();
+
+    if (book && book.title) {
+      currentScannedBook = book;
+      showBookResultModal(book);
+    } else {
+      showErrorModal(t.error_unfound);
+    }
+  } catch (error) {
+    hideLoadingModal();
+    showErrorModal(t.error_unfound);
+  }
+}
+
+function mergeBookData(primary, fallback) {
+  if (!primary) return fallback;
+  if (!fallback) return primary;
+
+  return {
+    isbn: primary.isbn || fallback.isbn,
+    title: primary.title || fallback.title || 'Neznámý název',
+    author: primary.author || fallback.author || 'Neznámý autor',
+    year: primary.year || fallback.year || 'Neuvedeno',
+    publisher: primary.publisher || fallback.publisher || 'Neuvedeno',
+    cover: primary.cover || fallback.cover || ''
+  };
+}
+
+async function fetchBookFromKnihovnyCz(isbn) {
+  try {
+    const url = `https://www.knihovny.cz/api/v1/search?lookfor=${encodeURIComponent(isbn)}&type=Isbn`;
+    const response = await fetch(url);
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    if (data && data.records && data.records.length > 0) {
+      const rec = data.records[0];
+
+      let title = rec.title || rec.shortTitle || '';
+      if (rec.subTitle) title += `: ${rec.subTitle}`;
+
+      let author = '';
+      if (rec.authors) {
+        if (rec.authors.primary) {
+          author = Object.keys(rec.authors.primary).join(', ');
+        } else if (Array.isArray(rec.authors)) {
+          author = rec.authors.join(', ');
+        }
+      }
+
+      let year = rec.publishDate || (rec.publicationDates ? rec.publicationDates[0] : '');
+      let publisher = rec.publisher || (rec.publishers ? rec.publishers[0] : '');
+
+      let cover = rec.cover || '';
+      if (!cover && rec.id) {
+        cover = `https://www.knihovny.cz/Cover/Show?id=${encodeURIComponent(rec.id)}&size=medium`;
+      }
+
+      return {
+        isbn: isbn,
+        title: title.trim(),
+        author: author.trim(),
+        year: year ? String(year).trim() : '',
+        publisher: publisher ? String(publisher).trim() : '',
+        cover: cover
+      };
+    }
+  } catch (err) {
+    console.warn("Knihovny.cz fetch failed:", err);
+  }
+  return null;
+}
+
+async function fetchBookFromGoogleBooks(isbn) {
+  try {
+    const url = `https://www.googleapis.com/books/v1/volumes?q=isbn:${encodeURIComponent(isbn)}`;
+    const response = await fetch(url);
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    if (data && data.items && data.items.length > 0) {
+      const info = data.items[0].volumeInfo;
+      let cover = info.imageLinks ? (info.imageLinks.thumbnail || info.imageLinks.smallThumbnail || '').replace('http://', 'https://') : '';
+
+      return {
+        isbn: isbn,
+        title: info.title || '',
+        author: info.authors ? info.authors.join(', ') : '',
+        year: info.publishedDate ? info.publishedDate.substring(0, 4) : '',
+        publisher: info.publisher || '',
+        cover: cover
+      };
+    }
+  } catch (err) {
+    console.warn("Google Books fetch failed:", err);
+  }
+  return null;
+}
+
+async function fetchBookFromOpenLibrary(isbn) {
+  try {
+    const url = `https://openlibrary.org/api/books?bibkeys=ISBN:${encodeURIComponent(isbn)}&format=json&jscmd=data`;
+    const response = await fetch(url);
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const key = `ISBN:${isbn}`;
+    if (data && data[key]) {
+      const bookData = data[key];
+      return {
+        isbn: isbn,
+        title: bookData.title || '',
+        author: bookData.authors ? bookData.authors.map(a => a.name).join(', ') : '',
+        year: bookData.publish_date || '',
+        publisher: bookData.publishers ? bookData.publishers.map(p => p.name).join(', ') : '',
+        cover: bookData.cover ? (bookData.cover.medium || bookData.cover.small || '') : ''
+      };
+    }
+  } catch (err) {
+    console.warn("OpenLibrary fetch failed:", err);
+  }
+  return null;
+}
+
+
+// --- MODAL & UI HANDLERS ---
+
+function showLoadingModal(text) {
+  const modal = document.getElementById('modal-loading');
+  const textElem = document.getElementById('loading-text');
+  if (textElem) textElem.innerText = text || 'Vyhledávám...';
+  if (modal) modal.classList.remove('hidden');
+}
+
+function hideLoadingModal() {
+  const modal = document.getElementById('modal-loading');
+  if (modal) modal.classList.add('hidden');
+}
+
+function showErrorModal(message) {
+  const modal = document.getElementById('modal-error');
+  const msgElem = document.getElementById('error-message');
+  if (msgElem) msgElem.innerText = message || 'Vyskytl se problém.';
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeErrorAndGoHome() {
+  const modal = document.getElementById('modal-error');
+  if (modal) modal.classList.add('hidden');
+  isProcessingScan = false;
+  stopScannerAndGoHome();
+}
+
+function showBookResultModal(book) {
+  const modal = document.getElementById('modal-book-result');
+  const detailsElem = document.getElementById('modal-book-details');
+  const warningElem = document.getElementById('duplicate-warning');
+  const actionsElem = document.getElementById('modal-actions-container');
+
+  const existingBooks = getStoredBooks();
+  const isDuplicate = existingBooks.some(b => normalizeIsbn(b.isbn) === normalizeIsbn(book.isbn));
+
+  const coverSrc = book.cover ? book.cover : '';
+  const bookSvgPlaceholder = `<div class="book-cover-placeholder"><svg class="svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></svg></div>`;
+  const coverHtml = coverSrc
+    ? `<img src="${escapeHtml(coverSrc)}" alt="Obálka" class="preview-book-cover" onerror="handleCoverError(this)" />`
+    : bookSvgPlaceholder;
+
+  detailsElem.innerHTML = `
+    <div class="preview-book-card">
+      ${coverHtml}
+      <div class="preview-book-details">
+        <h4 class="preview-title">${escapeHtml(book.title || 'Neznámý název')}</h4>
+        <div class="preview-author">${escapeHtml(book.author || 'Neznámý autor')}</div>
+        <div class="preview-meta">
+          ${book.year ? `<span>Rok: <strong>${escapeHtml(book.year)}</strong></span>` : ''}
+          ${book.publisher ? `<span> • ${escapeHtml(book.publisher)}</span>` : ''}
+        </div>
+        <div class="preview-meta" style="margin-top: 4px;">
+          <span>ISBN: ${escapeHtml(book.isbn)}</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  if (isDuplicate) {
+    warningElem.classList.remove('hidden');
+    actionsElem.innerHTML = `
+      <button class="chunky-btn primary-btn" onclick="saveCurrentBook(true)">
+        ➕ Duplikovat
+      </button>
+      <button class="chunky-btn outline-btn" onclick="discardCurrentBook()">
+        🗑️ Zahodit
+      </button>
+    `;
+  } else {
+    warningElem.classList.add('hidden');
+    actionsElem.innerHTML = `
+      <button class="chunky-btn primary-btn" onclick="saveCurrentBook(false)">
+        📥 Přidat do knihovny
+      </button>
+      <button class="chunky-btn outline-btn" onclick="discardCurrentBook()">
+        🗑️ Zahodit
+      </button>
+    `;
+  }
+
+  modal.classList.remove('hidden');
+}
+
+function discardCurrentBook() {
+  const modal = document.getElementById('modal-book-result');
+  if (modal) modal.classList.add('hidden');
+  currentScannedBook = null;
+  isProcessingScan = false;
+}
+
+
+// --- USER AUTH & GOOGLE SIGN-IN ---
+
+function getStoredUser() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_USER);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveUser(userObj) {
+  if (userObj) {
+    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(userObj));
+  } else {
+    localStorage.removeItem(STORAGE_KEY_USER);
+  }
+  updateUserAuthBar();
+}
+
+function updateUserAuthBar() {
+  const user = getStoredUser();
+  const displayElem = document.getElementById('user-info-display');
+  const triggerBtn = document.getElementById('login-trigger-btn');
+
+  const lang = getCurrentLang();
+  const t = TRANSLATIONS[lang] || TRANSLATIONS.cs;
+
+  if (user && user.email) {
+    displayElem.innerHTML = `<span class="user-logged-in-name">👤 ${escapeHtml(user.name || user.email)}</span>`;
+    if (triggerBtn) {
+      triggerBtn.innerText = t.logout_btn;
+      triggerBtn.onclick = handleLogout;
+    }
+  } else {
+    displayElem.innerHTML = `<span class="user-status-text">${t.not_logged_in}</span>`;
+    if (triggerBtn) {
+      triggerBtn.innerText = t.login_btn;
+      triggerBtn.onclick = openLoginModal;
+    }
+  }
+}
+
+function openLoginModal() {
+  const modal = document.getElementById('modal-login');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeLoginModal() {
+  const modal = document.getElementById('modal-login');
+  if (modal) modal.classList.add('hidden');
+}
+
+function handleDemoLoginSubmit(event) {
+  event.preventDefault();
+  const emailElem = document.getElementById('demo-email-input');
+  if (!emailElem || !emailElem.value) return;
+
+  saveUser({
+    email: emailElem.value,
+    name: emailElem.value.split('@')[0]
+  });
+
+  closeLoginModal();
+}
+
+function handleGoogleSignInClick() {
+  alert("Pro aktivaci Google přihlášení zadejte váš platný Google Client ID v souboru index.html (místo YOUR_GOOGLE_CLIENT_ID).\n\nPro vyzkoušení funkce přihlášení použijte Demo přihlášení níže!");
+}
+
+function handleGoogleSignInResponse(response) {
+  try {
+    // Decode Google JWT credential payload
+    const base64Url = response.credential.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+    const payload = JSON.parse(jsonPayload);
+
+    saveUser({
+      email: payload.email,
+      name: payload.name || payload.given_name || payload.email
+    });
+
+    closeLoginModal();
+  } catch (e) {
+    console.error("Google sign-in parse error:", e);
+  }
+}
+
+function handleLogout() {
+  saveUser(null);
+}
+
+
+// --- LOCAL STORAGE & BOOK MANAGEMENT ---
+
+function getStoredBooks() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_BOOKS);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveStoredBooks(books) {
+  try {
+    localStorage.setItem(STORAGE_KEY_BOOKS, JSON.stringify(books));
+    updateMenuBookCount();
+  } catch (e) {
+    console.error("Error saving books:", e);
+  }
+}
+
+function saveCurrentBook(isDuplicateAllowed = false) {
+  if (!currentScannedBook) return;
+
+  const books = getStoredBooks();
+  const newEntry = {
+    ...currentScannedBook,
+    id: 'book_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+    addedAt: new Date().toISOString()
+  };
+
+  books.push(newEntry);
+  saveStoredBooks(books);
+
+  discardCurrentBook();
+  navigateTo('screen-library');
+}
+
+function deleteBookById(bookId) {
+  if (confirm("Opravdu chcete tuto knihu odebrat z knihovny?")) {
+    let books = getStoredBooks();
+    books = books.filter(b => b.id !== bookId);
+    saveStoredBooks(books);
+    renderLibrary();
+  }
+}
+
+function confirmClearLibrary() {
+  const books = getStoredBooks();
+  if (books.length === 0) return;
+
+  if (confirm("Opravdu chcete vymazat celou svou knihovnu? Tato akce je nevratná.")) {
+    saveStoredBooks([]);
+    renderLibrary();
+  }
+}
+
+function formatBookCount(count, lang) {
+  if (lang === 'cs') {
+    if (count === 1) return `1 kniha`;
+    if (count >= 2 && count <= 4) return `${count} knihy`;
+    return `${count} knih`;
+  } else if (lang === 'pl') {
+    if (count === 1) return `1 książka`;
+    if (count >= 2 && count <= 4) return `${count} książki`;
+    return `${count} książek`;
+  } else {
+    if (count === 1) return `1 book`;
+    return `${count} books`;
+  }
+}
+
+function updateMenuBookCount() {
+  const books = getStoredBooks();
+  const lang = getCurrentLang();
+  const countElem = document.getElementById('menu-book-count');
+  const libCountElem = document.getElementById('library-count');
+
+  const formattedLabel = formatBookCount(books.length, lang);
+
+  if (countElem) countElem.innerText = books.length;
+  if (libCountElem) libCountElem.innerText = formattedLabel;
+}
+
+
+// --- LIBRARY RENDER, ALPHABET SIDEBAR & SEARCH ---
+
+function getFirstLetter(str) {
+  if (!str) return '#';
+  const cleanStr = str.trim().toUpperCase();
+  if (cleanStr.startsWith('CH')) return 'CH';
+  const first = cleanStr.charAt(0);
+  return first.match(/[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]/i) ? normalizeCzechLetter(first) : '#';
+}
+
+function normalizeCzechLetter(char) {
+  const map = {
+    'Á':'A', 'Ä':'A',
+    'Č':'Č',
+    'Ď':'D',
+    'É':'E', 'Ě':'E',
+    'Í':'I',
+    'Ň':'N',
+    'Ó':'O', 'Ö':'O',
+    'Ř':'Ř',
+    'Š':'Š',
+    'Ť':'T',
+    'Ú':'U', 'Ů':'U', 'Ü':'U',
+    'Ý':'Y',
+    'Ž':'Ž'
+  };
+  return map[char] || char;
+}
+
+function renderLibrary() {
+  const booksListElem = document.getElementById('books-list');
+  const searchInput = document.getElementById('library-search-input');
+
+  const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+  let books = getStoredBooks();
+
+  const lang = getCurrentLang();
+  const t = TRANSLATIONS[lang] || TRANSLATIONS.cs;
+
+  books.sort((a, b) => (a.title || '').localeCompare(b.title || '', lang, { sensitivity: 'base' }));
+
+  if (query) {
+    books = books.filter(b =>
+      (b.title && b.title.toLowerCase().includes(query)) ||
+      (b.author && b.author.toLowerCase().includes(query)) ||
+      (b.isbn && b.isbn.toLowerCase().includes(query))
+    );
+  }
+
+  updateMenuBookCount();
+  renderAlphabetSidebar(books);
+
+  if (books.length === 0) {
+    if (query) {
+      booksListElem.innerHTML = `
+        <div class="empty-library">
+          <h3>${t.no_search_results}</h3>
+          <p>Nenalezena žádná kniha odpovídající "<strong>${escapeHtml(query)}</strong>".</p>
+        </div>
+      `;
+    } else {
+      booksListElem.innerHTML = `
+        <div class="empty-library">
+          <h3>${t.empty_library_title}</h3>
+          <p>${t.empty_library_desc}</p>
+          <button class="chunky-btn primary-btn" onclick="navigateTo('screen-scanner')" style="margin-top: 16px;">
+            ${t.scan_first_book_btn}
+          </button>
+        </div>
+      `;
+    }
+    return;
+  }
+
+  let html = '';
+  let currentLetterGroup = '';
+
+  books.forEach(book => {
+    const letter = getFirstLetter(book.title);
+    const idAnchor = `letter-group-${letter}`;
+
+    let anchorAttr = '';
+    if (letter !== currentLetterGroup) {
+      currentLetterGroup = letter;
+      anchorAttr = `id="${idAnchor}"`;
+    }
+
+    const coverSrc = book.cover ? book.cover : '';
+    const bookSvgPlaceholder = `<div class="book-cover-placeholder"><svg class="svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></svg></div>`;
+    const coverHtml = coverSrc
+      ? `<img src="${escapeHtml(coverSrc)}" alt="Obálka" class="book-cover" onerror="handleCoverError(this)" />`
+      : bookSvgPlaceholder;
+
+    const yearStr = book.year ? escapeHtml(book.year) : '';
+    const publisherStr = book.publisher ? escapeHtml(book.publisher) : '';
+    let metaText = '';
+    if (yearStr && publisherStr) {
+      metaText = `Rok: ${yearStr} | Nakladatelství: ${publisherStr}`;
+    } else if (yearStr) {
+      metaText = `Rok: ${yearStr}`;
+    } else if (publisherStr) {
+      metaText = `Nakladatelství: ${publisherStr}`;
+    }
+
+    html += `
+      <div class="book-card" ${anchorAttr}>
+        ${coverHtml}
+        <div class="book-info">
+          <div class="book-title">${escapeHtml(book.title || 'Neznámý název')}</div>
+          <div class="book-author">${escapeHtml(book.author || 'Neznámý autor')}</div>
+          ${metaText ? `<div class="book-meta"><span>${metaText}</span></div>` : ''}
+        </div>
+        <div class="book-actions">
+          <button class="share-book-btn" onclick="shareBookWithFriend('${book.id}')" title="Poslat knihu příteli">
+            <svg class="svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
+          </button>
+          <button class="delete-book-btn" onclick="deleteBookById('${book.id}')" title="Odebrat knihu">
+            <svg class="svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+          </button>
+        </div>
+      </div>
+    `;
+  });
+
+  booksListElem.innerHTML = html;
+}
+
+function renderAlphabetSidebar(books) {
+  const sidebarElem = document.getElementById('alphabet-sidebar');
+  if (!sidebarElem) return;
+
+  const presentLetters = new Set();
+  books.forEach(b => {
+    presentLetters.add(getFirstLetter(b.title));
+  });
+
+  let html = '';
+  CZECH_ALPHABET.forEach(lettr => {
+    const isPresent = presentLetters.has(lettr);
+    const activeClass = isPresent ? 'active' : '';
+    html += `
+      <button class="alpha-letter ${activeClass}" onclick="scrollToLetter('${lettr}')" ${!isPresent ? 'disabled style="opacity: 0.3;"' : ''}>
+        ${lettr}
+      </button>
+    `;
+  });
+
+  sidebarElem.innerHTML = html;
+}
+
+function scrollToLetter(letter) {
+  const targetElem = document.getElementById(`letter-group-${letter}`);
+  if (targetElem) {
+    targetElem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function filterLibraryBooks() {
+  const searchInput = document.getElementById('library-search-input');
+  const clearBtn = document.getElementById('clear-search-btn');
+  if (clearBtn) {
+    if (searchInput.value.length > 0) {
+      clearBtn.classList.remove('hidden');
+    } else {
+      clearBtn.classList.add('hidden');
+    }
+  }
+  renderLibrary();
+}
+
+function clearLibrarySearch() {
+  const searchInput = document.getElementById('library-search-input');
+  if (searchInput) searchInput.value = '';
+  filterLibraryBooks();
+}
+
+function shareBookWithFriend(bookId) {
+  const books = getStoredBooks();
+  const book = books.find(b => b.id === bookId);
+  if (!book) return;
+
+  const shareTitle = `Kniha: ${book.title}`;
+  const shareText = `Ahoj! Posílám ti tip na knihu z Knihovníčka: ${book.title} (${book.author || 'Autor neuveden'}). Checkni ji!`;
+  const shareUrl = `${window.location.href.split('#')[0]}?isbn=${encodeURIComponent(book.isbn || '')}`;
+
+  if (navigator.share) {
+    navigator.share({
+      title: shareTitle,
+      text: shareText,
+      url: shareUrl
+    }).catch(err => {
+      copyToClipboardFallback(shareUrl, shareText);
+    });
+  } else {
+    copyToClipboardFallback(shareUrl, shareText);
+  }
+}
+
+function copyToClipboardFallback(url, text) {
+  const fullPayload = `${text}\n${url}`;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(fullPayload).then(() => {
+      alert("Odkaz na knihu byl zkopírován do schránky! Můžeš ho poslat kamarádce.");
+    }).catch(() => {
+      prompt("Kopírujte odkaz na knihu pro přátele:", fullPayload);
+    });
+  } else {
+    prompt("Kopírujte odkaz na knihu pro přátele:", fullPayload);
+  }
+}
+
+function copyLibraryShareLink() {
+  const appUrl = window.location.href.split('#')[0];
+  copyToClipboardFallback(appUrl, "Připoj se ke mně v aplikaci Knihovníček!");
+}
+
+
+// --- RECOMMENDED BOOKS & REVIEWS ---
+
+function getStoredReviews() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_REVIEWS);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveReview(bookId, stars, comment) {
+  const reviewsMap = getStoredReviews();
+  if (!reviewsMap[bookId]) {
+    reviewsMap[bookId] = [];
+  }
+
+  reviewsMap[bookId].unshift({
+    stars: stars,
+    comment: comment,
+    date: new Date().toLocaleDateString('cs-CZ')
+  });
+
+  try {
+    localStorage.setItem(STORAGE_KEY_REVIEWS, JSON.stringify(reviewsMap));
+  } catch (e) {
+    console.error("Error saving review:", e);
+  }
+}
+
+function renderMonthlyBooks() {
+  const listContainer = document.getElementById('monthly-books-list');
+  if (!listContainer) return;
+
+  const lang = getCurrentLang();
+  const t = TRANSLATIONS[lang] || TRANSLATIONS.cs;
+
+  const reviewsMap = getStoredReviews();
+
+  let html = '';
+  RECOMMENDED_BOOKS.forEach(book => {
+    const bookReviews = reviewsMap[book.id] || [];
+
+    let reviewsHtml = '';
+    if (bookReviews.length > 0) {
+      bookReviews.forEach(r => {
+        let starsSvg = '';
+        for (let i = 1; i <= 5; i++) {
+          starsSvg += i <= r.stars ? '★' : '☆';
+        }
+        reviewsHtml += `
+          <div class="review-item">
+            <div class="review-item-header">
+              <span class="review-stars">${starsSvg}</span>
+              <span>${escapeHtml(r.date)}</span>
+            </div>
+            <div class="review-text">${escapeHtml(r.comment)}</div>
+          </div>
+        `;
+      });
+    } else {
+      reviewsHtml = `<div class="input-hint" style="font-style: italic;">${t.no_reviews_yet}</div>`;
+    }
+
+    const coverSrc = book.cover ? book.cover : '';
+    const bookSvgPlaceholder = `<div class="book-cover-placeholder"><svg class="svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></svg></div>`;
+    const coverHtml = coverSrc
+      ? `<img src="${escapeHtml(coverSrc)}" alt="Obálka" class="book-cover" onerror="handleCoverError(this)" />`
+      : bookSvgPlaceholder;
+
+    html += `
+      <div class="monthly-book-card">
+        <div class="monthly-book-main">
+          ${coverHtml}
+          <div class="book-info">
+            <div class="book-title">${escapeHtml(book.title)}</div>
+            <div class="book-author">${escapeHtml(book.author)}</div>
+            <div class="book-meta"><span>${escapeHtml(book.publisher)} (${escapeHtml(book.year)})</span></div>
+            <p style="font-size: 12px; margin-top: 6px; color: var(--text-muted);">${escapeHtml(book.description)}</p>
+          </div>
+        </div>
+
+        <!-- Star Rating Input -->
+        <div class="comment-input-area">
+          <label class="input-label">${t.add_review_label}</label>
+          <div class="star-rating-picker" id="stars-picker-${book.id}">
+            ${[1,2,3,4,5].map(star => `
+              <button class="star-btn" data-star="${star}" onclick="selectStarRating('${book.id}', ${star})">
+                <svg class="svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+              </button>
+            `).join('')}
+          </div>
+
+          <textarea id="comment-text-${book.id}" class="comment-textarea" placeholder="${t.write_comment_placeholder}"></textarea>
+          <button class="chunky-btn primary-btn small-btn" onclick="submitBookReview('${book.id}')">
+            ${t.submit_review_btn}
+          </button>
+        </div>
+
+        <!-- Reviews List -->
+        <div class="reviews-list">
+          <label class="input-label">${t.user_reviews_label}</label>
+          ${reviewsHtml}
+        </div>
+      </div>
+    `;
+  });
+
+  listContainer.innerHTML = html;
+}
+
+const activeRatings = {};
+
+function selectStarRating(bookId, stars) {
+  activeRatings[bookId] = stars;
+  const pickerElem = document.getElementById(`stars-picker-${bookId}`);
+  if (!pickerElem) return;
+
+  const btns = pickerElem.querySelectorAll('.star-btn');
+  btns.forEach((btn, idx) => {
+    if (idx < stars) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+}
+
+function submitBookReview(bookId) {
+  const stars = activeRatings[bookId] || 5;
+  const textElem = document.getElementById(`comment-text-${bookId}`);
+  const commentText = textElem ? textElem.value.trim() : '';
+
+  if (!commentText) {
+    alert("Napište prosím k hodnocení i slovní komentář.");
+    return;
+  }
+
+  saveReview(bookId, stars, commentText);
+  if (textElem) textElem.value = '';
+  renderMonthlyBooks();
+}
+
+
+// --- SOCIAL: FOLLOW ACCOUNTS & INVITE FRIENDS ---
+
+function getStoredFollows() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_FOLLOWS);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function toggleFollowAccount(accId) {
+  let follows = getStoredFollows();
+  if (follows.includes(accId)) {
+    follows = follows.filter(id => id !== accId);
+  } else {
+    follows.push(accId);
+  }
+
+  try {
+    localStorage.setItem(STORAGE_KEY_FOLLOWS, JSON.stringify(follows));
+  } catch (e) {
+    console.error("Error saving follow state:", e);
+  }
+
+  // Refresh user profile modal button if open
+  const profileModal = document.getElementById('modal-user-profile');
+  if (profileModal && !profileModal.classList.contains('hidden')) {
+    openUserProfileModal(accId);
+  }
+
+  renderSocialAccounts();
+}
+
+function refreshRecommendedAccounts() {
+  recommendedAccountOffset = (recommendedAccountOffset + 3) % USER_PROFILES_DATABASE.length;
+  renderSocialAccounts();
+}
+
+function renderSocialAccounts() {
+  const listContainer = document.getElementById('accounts-list');
+  if (!listContainer) return;
+
+  const follows = getStoredFollows();
+
+  // Slice 3 current accounts based on offset
+  const currentBatch = USER_PROFILES_DATABASE.slice(recommendedAccountOffset, recommendedAccountOffset + 3);
+
+  // Check if all displayed batch accounts are followed
+  const allBatchFollowed = currentBatch.length > 0 && currentBatch.every(acc => follows.includes(acc.id));
+
+  let html = '';
+  currentBatch.forEach(acc => {
+    const isFollowing = follows.includes(acc.id);
+    html += `
+      <div class="account-item">
+        <div class="account-info" onclick="openUserProfileModal('${acc.id}')" style="cursor: pointer; flex: 1;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 20px;">${acc.avatar || '👤'}</span>
+            <span class="account-name">${escapeHtml(acc.name)}</span>
+          </div>
+          <span class="account-handle" style="margin-top: 2px;">${escapeHtml(acc.handle)} • ${escapeHtml(acc.desc)} (${acc.library ? acc.library.length : 0} knih)</span>
+        </div>
+        <button class="chunky-btn ${isFollowing ? 'outline-btn' : 'primary-btn'} small-btn" onclick="toggleFollowAccount('${acc.id}')">
+          ${isFollowing ? 'Sledováno ✓' : '+ Sledovat'}
+        </button>
+      </div>
+    `;
+  });
+
+  if (allBatchFollowed || currentBatch.length < 3) {
+    html += `
+      <div style="text-align: center; margin-top: 12px;">
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">Sledujete všechny zobrazené čtenáře!</p>
+        <button class="chunky-btn primary-btn large-btn" onclick="refreshRecommendedAccounts()">
+          🔄 Načíst další čtenáře (Refresh)
+        </button>
+      </div>
+    `;
+  } else {
+    html += `
+      <div style="text-align: center; margin-top: 10px;">
+        <button class="chunky-btn secondary-btn small-btn" onclick="refreshRecommendedAccounts()">
+          🔄 Načíst další uživatele
+        </button>
+      </div>
+    `;
+  }
+
+  listContainer.innerHTML = html;
+}
+
+function openUserProfileModal(userId) {
+  const user = USER_PROFILES_DATABASE.find(u => u.id === userId);
+  if (!user) return;
+
+  const modal = document.getElementById('modal-user-profile');
+  const contentElem = document.getElementById('modal-user-profile-content');
+  if (!modal || !contentElem) return;
+
+  const follows = getStoredFollows();
+  const isFollowing = follows.includes(user.id);
+
+  let booksHtml = '';
+  if (user.library && user.library.length > 0) {
+    user.library.forEach(b => {
+      let starsSvg = '';
+      for (let i = 1; i <= 5; i++) {
+        starsSvg += i <= (b.rating || 5) ? '★' : '☆';
+      }
+
+      const coverSrc = b.cover ? b.cover : '';
+      const bookSvgPlaceholder = `<div class="book-cover-placeholder"><svg class="svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></svg></div>`;
+      const coverHtml = coverSrc
+        ? `<img src="${escapeHtml(coverSrc)}" alt="Obálka" class="book-cover" onerror="handleCoverError(this)" />`
+        : bookSvgPlaceholder;
+
+      booksHtml += `
+        <div class="book-card" style="margin-bottom: 10px;">
+          ${coverHtml}
+          <div class="book-info">
+            <div class="book-title">${escapeHtml(b.title)}</div>
+            <div class="book-author">${escapeHtml(b.author)}</div>
+            <div class="book-meta"><span>${escapeHtml(b.publisher)} (${escapeHtml(b.year)})</span></div>
+            <div style="margin-top: 4px; font-size: 13px; color: var(--star-color);">${starsSvg}</div>
+            ${b.review ? `<p style="font-size: 12px; color: var(--text-muted); font-style: italic; margin-top: 2px;">„${escapeHtml(b.review)}“</p>` : ''}
+          </div>
+        </div>
+      `;
+    });
+  } else {
+    booksHtml = `<p style="color: var(--text-muted); text-align: center;">Tento uživatel nemá žádné knihy.</p>`;
+  }
+
+  contentElem.innerHTML = `
+    <div style="text-align: center; margin-bottom: 16px;">
+      <div style="font-size: 40px; margin-bottom: 4px;">${user.avatar || '👤'}</div>
+      <h3 style="font-size: 18px; font-weight: 800; color: var(--accent-color);">${escapeHtml(user.name)}</h3>
+      <div style="font-size: 13px; color: var(--text-muted);">${escapeHtml(user.handle)}</div>
+      <p style="font-size: 13px; margin-top: 6px;">${escapeHtml(user.desc)}</p>
+
+      <button class="chunky-btn ${isFollowing ? 'outline-btn' : 'primary-btn'} small-btn" style="margin-top: 12px;" onclick="toggleFollowAccount('${user.id}')">
+        ${isFollowing ? 'Sledováno ✓' : '+ Sledovat uživatele'}
+      </button>
+    </div>
+
+    <div style="border-top: 2px solid var(--border-color); padding-top: 14px;">
+      <h4 style="font-size: 15px; font-weight: 800; margin-bottom: 10px;">Knihovna uživatele (${user.library ? user.library.length : 0} knih):</h4>
+      ${booksHtml}
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+}
+
+function closeUserProfileModal() {
+  const modal = document.getElementById('modal-user-profile');
+  if (modal) modal.classList.add('hidden');
+}
+
+function inviteFriends() {
+  copyLibraryShareLink();
+}
+
+
+function handleCoverError(imgElement) {
+  if (!imgElement) return;
+  const placeholder = document.createElement('div');
+  placeholder.className = 'book-cover-placeholder';
+  placeholder.innerHTML = `<svg class="svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></svg>`;
+  if (imgElement.parentNode) {
+    imgElement.parentNode.replaceChild(placeholder, imgElement);
+  }
+}
+
+// Helper to escape HTML strings
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// Check URL parameters for shared ISBN link
+function checkUrlSharedIsbn() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const sharedIsbn = urlParams.get('isbn');
+  if (sharedIsbn && isValidIsbn(normalizeIsbn(sharedIsbn))) {
+    setTimeout(() => {
+      processIsbnSearch(normalizeIsbn(sharedIsbn));
+    }, 400);
+  }
+}
+
+// Global initialization
+document.addEventListener('DOMContentLoaded', () => {
+  const currentLang = getCurrentLang();
+  initTheme();
+  setLanguage(currentLang);
+
+  const quickBtn = document.getElementById('theme-toggle-quick');
+  if (quickBtn) {
+    quickBtn.addEventListener('click', toggleTheme);
+  }
+
+  checkUrlSharedIsbn();
+});
