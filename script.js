@@ -702,9 +702,46 @@ function normalizeIsbn(inputStr) {
   return inputStr.replace(/[^0-9Xx]/g, '').toUpperCase();
 }
 
+function convertIsbnTo13(inputIsbn) {
+  if (!inputIsbn) return '';
+  const clean = normalizeIsbn(inputIsbn);
+  if (clean.length === 13) {
+    return clean;
+  }
+  if (clean.length === 10) {
+    const raw = '978' + clean.substring(0, 9);
+    let sum = 0;
+    for (let i = 0; i < 12; i++) {
+      const digit = parseInt(raw.charAt(i), 10);
+      sum += (i % 2 === 0) ? digit : digit * 3;
+    }
+    const checkDigit = (10 - (sum % 10)) % 10;
+    return raw + checkDigit;
+  }
+  return clean;
+}
+
 function isValidIsbn(isbn) {
   const clean = normalizeIsbn(isbn);
   return clean.length === 10 || clean.length === 13;
+}
+
+function matchesTargetIsbn(isbnArray, targetIsbn13) {
+  if (!Array.isArray(isbnArray) || !targetIsbn13) return false;
+  return isbnArray.some(rawIsbn => {
+    const converted = convertIsbnTo13(rawIsbn);
+    return converted === targetIsbn13;
+  });
+}
+
+function trimCatalogPunctuation(str) {
+  if (!str) return '';
+  return str.replace(/[\s,;:/\-]+$/, '').trim();
+}
+
+function cleanAuthorName(nameWithYears) {
+  if (!nameWithYears) return '';
+  return nameWithYears.replace(/,\s*(?:asi\s*)?\d{3,4}.*$/i, '').trim();
 }
 
 function handleManualIsbnSubmit(event) {
@@ -773,46 +810,84 @@ function mergeBookData(primary, fallback) {
   };
 }
 
-async function fetchBookFromKnihovnyCz(isbn) {
+async function fetchBookFromKnihovnyCz(inputIsbn) {
+  const targetIsbn13 = convertIsbnTo13(inputIsbn);
+  if (!targetIsbn13) return null;
+
+  const fields = [
+    'id', 'title', 'authors', 'publishers', 'placesOfPublication',
+    'publicationDates', 'physicalDescriptions', 'isbns', 'issns', 'cnb', 'formats'
+  ];
+
+  const params = new URLSearchParams({
+    lookfor: targetIsbn13,
+    type: 'ISN',
+    limit: '10'
+  });
+  for (const field of fields) {
+    params.append('field[]', field);
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+
   try {
-    const url = `https://www.knihovny.cz/api/v1/search?lookfor=${encodeURIComponent(isbn)}&type=Isbn`;
-    const response = await fetch(url);
+    const url = 'https://www.knihovny.cz/api/v1/search?' + params.toString();
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
     if (!response.ok) return null;
 
     const data = await response.json();
-    if (data && data.records && data.records.length > 0) {
-      const rec = data.records[0];
+    const records = data.records ?? [];
+    if (records.length === 0) return null;
 
-      let title = rec.title || rec.shortTitle || '';
-      if (rec.subTitle) title += `: ${rec.subTitle}`;
+    let rec = records.find(r => matchesTargetIsbn(r.isbns, targetIsbn13));
+    if (!rec) return null;
 
-      let author = '';
-      if (rec.authors) {
-        if (rec.authors.primary) {
-          author = Object.keys(rec.authors.primary).join(', ');
-        } else if (Array.isArray(rec.authors)) {
-          author = rec.authors.join(', ');
-        }
-      }
+    let rawTitle = rec.title ?? rec.shortTitle ?? '';
+    if (rec.subTitle) rawTitle += `: ${rec.subTitle}`;
+    const title = trimCatalogPunctuation(rawTitle);
 
-      let year = rec.publishDate || (rec.publicationDates ? rec.publicationDates[0] : '');
-      let publisher = rec.publisher || (rec.publishers ? rec.publishers[0] : '');
-
-      let cover = rec.cover || '';
-      if (!cover && rec.id) {
-        cover = `https://www.knihovny.cz/Cover/Show?id=${encodeURIComponent(rec.id)}&size=medium`;
-      }
-
-      return {
-        isbn: isbn,
-        title: title.trim(),
-        author: author.trim(),
-        year: year ? String(year).trim() : '',
-        publisher: publisher ? String(publisher).trim() : '',
-        cover: cover
-      };
+    let authorNames = [];
+    if (rec.authors?.primary && typeof rec.authors.primary === 'object') {
+      const primaryKeys = Object.keys(rec.authors.primary);
+      authorNames.push(...primaryKeys.map(cleanAuthorName));
     }
+    if (authorNames.length === 0 && rec.authors?.secondary && typeof rec.authors.secondary === 'object') {
+      const secondaryKeys = Object.keys(rec.authors.secondary);
+      authorNames.push(...secondaryKeys.map(cleanAuthorName));
+    }
+    const author = authorNames.filter(Boolean).join(', ');
+
+    const rawPublisher = rec.publishers?.[0] ?? '';
+    const publisher = trimCatalogPunctuation(rawPublisher);
+
+    let year = '';
+    const rawDateStr = rec.publicationDates?.[0] ?? '';
+    const yearMatch = rawDateStr.match(/\d{4}/);
+    if (yearMatch) {
+      year = yearMatch[0];
+    }
+
+    const pages = rec.physicalDescriptions?.[0] ?? '';
+    let cover = rec.cover ?? '';
+    if (!cover && rec.id) {
+      cover = `https://www.knihovny.cz/Cover/Show?id=${encodeURIComponent(rec.id)}&size=medium`;
+    }
+
+    return {
+      isbn: targetIsbn13,
+      title: title,
+      author: author,
+      year: year,
+      publisher: publisher,
+      pages: pages,
+      cnb: rec.cnb ?? '',
+      cover: cover
+    };
   } catch (err) {
+    clearTimeout(timeoutId);
     console.warn("Knihovny.cz fetch failed:", err);
   }
   return null;
@@ -923,6 +998,7 @@ function showBookResultModal(book) {
           ${book.year ? `<span>Rok: <strong>${escapeHtml(book.year)}</strong></span>` : ''}
           ${book.publisher ? `<span> • ${escapeHtml(book.publisher)}</span>` : ''}
         </div>
+        ${book.pages ? `<div class="preview-meta" style="margin-top: 2px;"><span>Rozsah: ${escapeHtml(book.pages)}</span></div>` : ''}
         <div class="preview-meta" style="margin-top: 4px;">
           <span>ISBN: ${escapeHtml(book.isbn)}</span>
         </div>
@@ -1236,6 +1312,7 @@ function renderLibrary() {
 
     const yearStr = book.year ? escapeHtml(book.year) : '';
     const publisherStr = book.publisher ? escapeHtml(book.publisher) : '';
+    const pagesStr = book.pages ? escapeHtml(book.pages) : '';
     let metaText = '';
     if (yearStr && publisherStr) {
       metaText = `Rok: ${yearStr} | Nakladatelství: ${publisherStr}`;
@@ -1243,6 +1320,9 @@ function renderLibrary() {
       metaText = `Rok: ${yearStr}`;
     } else if (publisherStr) {
       metaText = `Nakladatelství: ${publisherStr}`;
+    }
+    if (pagesStr) {
+      metaText += metaText ? ` (${pagesStr})` : pagesStr;
     }
 
     html += `
