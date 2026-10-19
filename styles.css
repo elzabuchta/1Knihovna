@@ -867,24 +867,62 @@ body {
   gap: 6px;
 }
 
-.book-actions {
+.book-actions-col {
   display: flex;
+  flex-direction: column;
+  gap: 4px;
   align-items: center;
   justify-content: center;
   padding-left: 4px;
 }
 
+.fav-heart-btn,
+.manage-libs-btn,
 .share-book-btn,
 .delete-book-btn {
   background: var(--bg-card);
   border: 2px solid var(--border-color);
   cursor: pointer;
-  padding: 8px;
-  border-radius: 12px;
+  padding: 6px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.15s ease;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.fav-heart-btn:hover,
+.manage-libs-btn:hover {
+  background-color: var(--bg-hover);
+  transform: scale(1.1);
+}
+
+.library-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.library-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: var(--bg-card);
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.library-checkbox-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-color);
 }
 
 .share-book-btn {
@@ -1189,8 +1227,8 @@ input:checked + .switch-slider:before {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(4px);
+  background-color: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(6px);
   display: flex;
   justify-content: center;
   align-items: center;
