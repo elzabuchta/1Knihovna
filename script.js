@@ -1322,7 +1322,11 @@ function renderLibrarySelector() {
 
   let html = '';
   libs.forEach(lib => {
-    const libBooks = books.filter(b => (b.libraryId || DEFAULT_LIBRARY_ID) === lib.id);
+    const libBooks = books.filter(b => {
+      const libIds = Array.isArray(b.libraryIds) ? b.libraryIds : [b.libraryId || DEFAULT_LIBRARY_ID];
+      if (lib.id === DEFAULT_LIBRARY_ID && b.isFavorite) return true;
+      return libIds.includes(lib.id);
+    });
 
     html += `
       <div class="library-card-item" onclick="openSpecificLibrary('${lib.id}')">
@@ -1379,9 +1383,14 @@ function getStoredBooks() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_BOOKS);
     const books = raw ? JSON.parse(raw) : [];
-    // Ensure all legacy books have genre and default library
+    // Ensure all legacy books have genre, libraryIds array, and isFavorite flag
     books.forEach(b => {
-      if (!b.libraryId) b.libraryId = DEFAULT_LIBRARY_ID;
+      if (!b.libraryIds) {
+        b.libraryIds = b.libraryId ? [b.libraryId] : [DEFAULT_LIBRARY_ID];
+      }
+      if (typeof b.isFavorite === 'undefined') {
+        b.isFavorite = b.libraryIds.includes(DEFAULT_LIBRARY_ID);
+      }
       if (!b.genre) {
         const detected = detectBookGenre(b.title, b.author, b.description || '');
         b.genre = detected.id;
@@ -1410,11 +1419,19 @@ function saveCurrentBook(isDuplicateAllowed = false) {
 
   const detectedGenre = detectBookGenre(currentScannedBook.title, currentScannedBook.author, currentScannedBook.description || '');
 
+  const isFav = targetLibId === DEFAULT_LIBRARY_ID;
+  const initialLibIds = [targetLibId];
+  if (isFav && !initialLibIds.includes(DEFAULT_LIBRARY_ID)) {
+    initialLibIds.push(DEFAULT_LIBRARY_ID);
+  }
+
   const books = getStoredBooks();
   const newEntry = {
     ...currentScannedBook,
     id: 'book_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
     libraryId: targetLibId,
+    libraryIds: initialLibIds,
+    isFavorite: isFav,
     genre: detectedGenre.id,
     addedAt: new Date().toISOString()
   };
@@ -1424,6 +1441,107 @@ function saveCurrentBook(isDuplicateAllowed = false) {
 
   discardCurrentBook();
   openSpecificLibrary(targetLibId);
+}
+
+function toggleBookFavorite(bookId, event) {
+  if (event) event.stopPropagation();
+
+  const books = getStoredBooks();
+  const book = books.find(b => b.id === bookId);
+  if (!book) return;
+
+  book.isFavorite = !book.isFavorite;
+
+  if (!Array.isArray(book.libraryIds)) {
+    book.libraryIds = [book.libraryId || DEFAULT_LIBRARY_ID];
+  }
+
+  if (book.isFavorite) {
+    if (!book.libraryIds.includes(DEFAULT_LIBRARY_ID)) {
+      book.libraryIds.push(DEFAULT_LIBRARY_ID);
+    }
+  }
+
+  saveStoredBooks(books);
+  renderLibrary();
+}
+
+let activeManagingBookId = null;
+
+function openManageLibrariesModal(bookId, event) {
+  if (event) event.stopPropagation();
+
+  activeManagingBookId = bookId;
+  const books = getStoredBooks();
+  const book = books.find(b => b.id === bookId);
+  if (!book) return;
+
+  const libs = getStoredLibraries();
+  const modal = document.getElementById('modal-manage-book-libraries');
+  const contentElem = document.getElementById('modal-manage-libraries-content');
+
+  const currentLibIds = Array.isArray(book.libraryIds) ? book.libraryIds : [book.libraryId || DEFAULT_LIBRARY_ID];
+
+  let checkboxesHtml = libs.map(lib => {
+    const isChecked = currentLibIds.includes(lib.id) ? 'checked' : '';
+    return `
+      <label class="library-checkbox-item">
+        <input type="checkbox" value="${lib.id}" ${isChecked} class="lib-checkbox" />
+        <span>${escapeHtml(lib.name)}</span>
+      </label>
+    `;
+  }).join('');
+
+  contentElem.innerHTML = `
+    <div style="margin-bottom: 12px;">
+      <strong style="font-size: 15px; color: var(--accent-color);">${escapeHtml(book.title)}</strong>
+      <p style="font-size: 13px; color: var(--text-muted);">Zaškrtněte knihovny, ve kterých má být tato kniha uložena:</p>
+    </div>
+
+    <div class="library-checkbox-list">
+      ${checkboxesHtml}
+    </div>
+  `;
+
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeManageLibrariesModal() {
+  const modal = document.getElementById('modal-manage-book-libraries');
+  if (modal) modal.classList.add('hidden');
+  activeManagingBookId = null;
+}
+
+function saveBookLibrariesSelection() {
+  if (!activeManagingBookId) return;
+
+  const books = getStoredBooks();
+  const book = books.find(b => b.id === activeManagingBookId);
+  if (!book) return;
+
+  const checkboxes = document.querySelectorAll('.lib-checkbox');
+  const selectedLibIds = [];
+  checkboxes.forEach(cb => {
+    if (cb.checked) {
+      selectedLibIds.push(cb.value);
+    }
+  });
+
+  if (selectedLibIds.length === 0) {
+    alert("Vyberte prosím alespoň jednu knihovnu.");
+    return;
+  }
+
+  book.libraryIds = selectedLibIds;
+  book.libraryId = selectedLibIds[0];
+
+  if (selectedLibIds.includes(DEFAULT_LIBRARY_ID)) {
+    book.isFavorite = true;
+  }
+
+  saveStoredBooks(books);
+  closeManageLibrariesModal();
+  renderLibrary();
 }
 
 function deleteBookById(bookId) {
@@ -1552,7 +1670,11 @@ function renderLibrary() {
   let allBooks = getStoredBooks();
 
   // Filter books by active library
-  let books = allBooks.filter(b => (b.libraryId || DEFAULT_LIBRARY_ID) === currentLibId);
+  let books = allBooks.filter(b => {
+    const libIds = Array.isArray(b.libraryIds) ? b.libraryIds : [b.libraryId || DEFAULT_LIBRARY_ID];
+    if (currentLibId === DEFAULT_LIBRARY_ID && b.isFavorite) return true;
+    return libIds.includes(currentLibId);
+  });
 
   const lang = getCurrentLang();
   const t = TRANSLATIONS[lang] || TRANSLATIONS.cs;
@@ -1634,6 +1756,8 @@ function renderLibrary() {
     const bookGenre = BOOK_GENRES.find(g => g.id === (book.genre || 'roman')) || BOOK_GENRES[0];
     const textColor = bookGenre.textColor || '#FFFFFF';
 
+    const isFav = !!book.isFavorite;
+
     html += `
       <div class="book-card" ${anchorAttr}>
         ${coverHtml}
@@ -1647,7 +1771,13 @@ function renderLibrary() {
           </div>
           ${metaText ? `<div class="book-meta"><span>${metaText}</span></div>` : ''}
         </div>
-        <div class="book-actions">
+        <div class="book-actions-col">
+          <button class="fav-heart-btn ${isFav ? 'is-favorite' : ''}" onclick="toggleBookFavorite('${book.id}', event)" title="${isFav ? 'Odebrat z oblíbených' : 'Přidat do oblíbených'}">
+            ${isFav ? '❤️' : '🤍'}
+          </button>
+          <button class="manage-libs-btn" onclick="openManageLibrariesModal('${book.id}', event)" title="Zařadit do knihoven">
+            📚
+          </button>
           <button class="share-book-btn" onclick="shareBookWithFriend('${book.id}')" title="Poslat knihu příteli">
             <svg class="svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
           </button>

@@ -433,6 +433,27 @@
     </div>
 
 
+    <!-- MODAL: MANAGE BOOK LIBRARIES & FAVORITE -->
+    <div id="modal-manage-book-libraries" class="modal-overlay hidden">
+      <div class="modal-card chunky-modal">
+        <div class="modal-header">
+          <h3>Zařadit do knihoven</h3>
+        </div>
+
+        <div class="modal-body" id="modal-manage-libraries-content"></div>
+
+        <div class="modal-actions">
+          <button class="chunky-btn primary-btn" onclick="saveBookLibrariesSelection()">
+            Uložit změny
+          </button>
+          <button class="chunky-btn outline-btn" onclick="closeManageLibrariesModal()">
+            Zrušit
+          </button>
+        </div>
+      </div>
+    </div>
+
+
     <!-- MODAL: CREATE NEW LIBRARY -->
     <div id="modal-create-library" class="modal-overlay hidden">
       <div class="modal-card chunky-modal">
