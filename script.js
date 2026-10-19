@@ -3,9 +3,17 @@
 const STORAGE_KEY_THEME = 'knihovnicek_theme';
 const STORAGE_KEY_LANG = 'knihovnicek_lang';
 const STORAGE_KEY_BOOKS = 'knihovnicek_books';
+const STORAGE_KEY_LIBRARIES = 'knihovnicek_libraries';
+const STORAGE_KEY_ACTIVE_LIB = 'knihovnicek_active_lib';
 const STORAGE_KEY_REVIEWS = 'knihovnicek_reviews';
 const STORAGE_KEY_FOLLOWS = 'knihovnicek_follows';
 const STORAGE_KEY_USER = 'knihovnicek_user';
+
+const DEFAULT_LIBRARY_ID = 'lib_favorites';
+const DEFAULT_LIBRARY_NAME = 'Oblíbené knihy';
+
+let activeLibraryId = DEFAULT_LIBRARY_ID;
+let selectedGenreFilter = 'all';
 
 let html5QrCode = null;
 let isScannerRunning = false;
@@ -53,8 +61,8 @@ const TRANSLATIONS = {
     logout_btn: "Odhlásit",
     menu_scan_title: "Skenovat / Zadat ISBN",
     menu_scan_desc: "Naskenujte kód fotoaparátem nebo zadejte ručně",
-    menu_library_title: "Moje Knihovna",
-    menu_library_desc: "Prohlížet a vyhledávat uložené knihy",
+    menu_library_title: "Moje Knihovny",
+    menu_library_desc: "Prohlížet a spravovat vaše knihovny",
     menu_recommended_title: "Doporučené knihy",
     menu_recommended_desc: "Doporučené tituly, hodnocení a recenze",
     menu_social_title: "Sledování & Přátelé",
@@ -610,7 +618,9 @@ function navigateTo(screenId) {
     stopCameraScanner();
   }
 
-  if (screenId === 'screen-library') {
+  if (screenId === 'screen-library-selector') {
+    renderLibrarySelector();
+  } else if (screenId === 'screen-library') {
     renderLibrary();
   } else if (screenId === 'screen-monthly-books') {
     renderMonthlyBooks();
@@ -988,6 +998,15 @@ function showBookResultModal(book) {
     ? `<img src="${escapeHtml(coverSrc)}" alt="Obálka" class="preview-book-cover" onerror="handleCoverError(this)" />`
     : bookSvgPlaceholder;
 
+  const libs = getStoredLibraries();
+  const currentLibId = getActiveLibraryId();
+
+  let libOptionsHtml = libs.map(l =>
+    `<option value="${l.id}" ${l.id === currentLibId ? 'selected' : ''}>${escapeHtml(l.name)}</option>`
+  ).join('');
+
+  const detectedGenre = detectBookGenre(book.title, book.author, book.description || '');
+
   detailsElem.innerHTML = `
     <div class="preview-book-card">
       ${coverHtml}
@@ -1002,7 +1021,19 @@ function showBookResultModal(book) {
         <div class="preview-meta" style="margin-top: 4px;">
           <span>ISBN: ${escapeHtml(book.isbn)}</span>
         </div>
+        <div style="margin-top: 8px;">
+          <span class="genre-badge" style="background-color: ${detectedGenre.color}; color: ${detectedGenre.textColor || '#FFF'};">
+            Žánr: ${escapeHtml(detectedGenre.name)}
+          </span>
+        </div>
       </div>
+    </div>
+
+    <div style="margin-top: 14px; text-align: left;">
+      <label class="input-label" for="save-target-library-select">Uložit do knihovny:</label>
+      <select id="save-target-library-select" class="chunky-select" style="width: 100%;">
+        ${libOptionsHtml}
+      </select>
     </div>
   `;
 
@@ -1133,12 +1164,137 @@ function handleLogout() {
 }
 
 
+// --- LIBRARIES & MULTI-LIBRARY MANAGEMENT ---
+
+function getStoredLibraries() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_LIBRARIES);
+    let libs = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(libs) || libs.length === 0) {
+      libs = [{ id: DEFAULT_LIBRARY_ID, name: DEFAULT_LIBRARY_NAME, createdAt: new Date().toISOString() }];
+      localStorage.setItem(STORAGE_KEY_LIBRARIES, JSON.stringify(libs));
+    }
+    return libs;
+  } catch (e) {
+    return [{ id: DEFAULT_LIBRARY_ID, name: DEFAULT_LIBRARY_NAME, createdAt: new Date().toISOString() }];
+  }
+}
+
+function saveStoredLibraries(libs) {
+  try {
+    localStorage.setItem(STORAGE_KEY_LIBRARIES, JSON.stringify(libs));
+  } catch (e) {
+    console.error("Error saving libraries:", e);
+  }
+}
+
+function getActiveLibraryId() {
+  return localStorage.getItem(STORAGE_KEY_ACTIVE_LIB) || DEFAULT_LIBRARY_ID;
+}
+
+function setActiveLibraryId(libId) {
+  activeLibraryId = libId;
+  localStorage.setItem(STORAGE_KEY_ACTIVE_LIB, libId);
+}
+
+function openCreateLibraryModal() {
+  const modal = document.getElementById('modal-create-library');
+  const input = document.getElementById('new-library-name-input');
+  if (input) input.value = '';
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeCreateLibraryModal() {
+  const modal = document.getElementById('modal-create-library');
+  if (modal) modal.classList.add('hidden');
+}
+
+function handleCreateLibrarySubmit(event) {
+  event.preventDefault();
+  const input = document.getElementById('new-library-name-input');
+  const name = input ? input.value.trim() : '';
+  if (!name) return;
+
+  const libs = getStoredLibraries();
+  const newLib = {
+    id: 'lib_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+    name: name,
+    createdAt: new Date().toISOString()
+  };
+  libs.push(newLib);
+  saveStoredLibraries(libs);
+
+  closeCreateLibraryModal();
+  renderLibrarySelector();
+}
+
+function openSpecificLibrary(libId) {
+  setActiveLibraryId(libId);
+  selectedGenreFilter = 'all';
+  navigateTo('screen-library');
+}
+
+function renderLibrarySelector() {
+  const gridElem = document.getElementById('libraries-grid');
+  if (!gridElem) return;
+
+  const libs = getStoredLibraries();
+  const books = getStoredBooks();
+
+  let html = '';
+  libs.forEach(lib => {
+    const libBooks = books.filter(b => (b.libraryId || DEFAULT_LIBRARY_ID) === lib.id);
+
+    html += `
+      <div class="library-card-item" onclick="openSpecificLibrary('${lib.id}')">
+        <div class="library-card-icon">📚</div>
+        <div class="library-card-info">
+          <h3 class="library-card-title">${escapeHtml(lib.name)}</h3>
+          <span class="library-card-count">${formatBookCount(libBooks.length, getCurrentLang())}</span>
+        </div>
+        <div class="library-card-arrow">➔</div>
+      </div>
+    `;
+  });
+
+  gridElem.innerHTML = html;
+  renderGenreLegendMap();
+}
+
+function renderGenreLegendMap() {
+  const legendGrid = document.getElementById('genre-legend-grid');
+  if (!legendGrid) return;
+
+  let html = '';
+  BOOK_GENRES.forEach(genre => {
+    const textColor = genre.textColor || '#FFFFFF';
+    html += `
+      <div class="legend-item" style="border-left: 6px solid ${genre.color};">
+        <span class="genre-pill" style="background-color: ${genre.color}; color: ${textColor};">${escapeHtml(genre.name)}</span>
+        <p class="legend-desc">${escapeHtml(genre.description)}</p>
+      </div>
+    `;
+  });
+
+  legendGrid.innerHTML = html;
+}
+
+
 // --- LOCAL STORAGE & BOOK MANAGEMENT ---
 
 function getStoredBooks() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_BOOKS);
-    return raw ? JSON.parse(raw) : [];
+    const books = raw ? JSON.parse(raw) : [];
+    // Ensure all legacy books have genre and default library
+    books.forEach(b => {
+      if (!b.libraryId) b.libraryId = DEFAULT_LIBRARY_ID;
+      if (!b.genre) {
+        const detected = detectBookGenre(b.title, b.author, b.description || '');
+        b.genre = detected.id;
+      }
+    });
+    return books;
   } catch (e) {
     return [];
   }
@@ -1156,10 +1312,17 @@ function saveStoredBooks(books) {
 function saveCurrentBook(isDuplicateAllowed = false) {
   if (!currentScannedBook) return;
 
+  const targetLibSelect = document.getElementById('save-target-library-select');
+  const targetLibId = targetLibSelect ? targetLibSelect.value : getActiveLibraryId();
+
+  const detectedGenre = detectBookGenre(currentScannedBook.title, currentScannedBook.author, currentScannedBook.description || '');
+
   const books = getStoredBooks();
   const newEntry = {
     ...currentScannedBook,
     id: 'book_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+    libraryId: targetLibId,
+    genre: detectedGenre.id,
     addedAt: new Date().toISOString()
   };
 
@@ -1167,7 +1330,7 @@ function saveCurrentBook(isDuplicateAllowed = false) {
   saveStoredBooks(books);
 
   discardCurrentBook();
-  navigateTo('screen-library');
+  openSpecificLibrary(targetLibId);
 }
 
 function deleteBookById(bookId) {
@@ -1246,17 +1409,67 @@ function normalizeCzechLetter(char) {
   return map[char] || char;
 }
 
+function selectGenreFilter(genreId) {
+  selectedGenreFilter = genreId;
+  renderLibrary();
+}
+
+function renderGenreTabs() {
+  const tabsContainer = document.getElementById('genre-tabs-container');
+  if (!tabsContainer) return;
+
+  let html = `
+    <button class="genre-tab-btn ${selectedGenreFilter === 'all' ? 'active' : ''}" onclick="selectGenreFilter('all')">
+      Všechny žánry
+    </button>
+  `;
+
+  BOOK_GENRES.forEach(g => {
+    const isActive = selectedGenreFilter === g.id;
+    const textColor = g.textColor || '#FFFFFF';
+
+    html += `
+      <button
+        class="genre-tab-btn ${isActive ? 'active' : ''}"
+        style="${isActive ? `background-color: ${g.color}; color: ${textColor}; border-color: ${g.color};` : `border-color: ${g.color}; color: var(--text-color);`}"
+        onclick="selectGenreFilter('${g.id}')"
+      >
+        <span class="genre-dot" style="background-color: ${g.color};"></span> ${escapeHtml(g.name)}
+      </button>
+    `;
+  });
+
+  tabsContainer.innerHTML = html;
+}
+
 function renderLibrary() {
   const booksListElem = document.getElementById('books-list');
   const searchInput = document.getElementById('library-search-input');
+  const libTitleElem = document.getElementById('current-library-title');
+
+  const currentLibId = getActiveLibraryId();
+  const libs = getStoredLibraries();
+  const currentLib = libs.find(l => l.id === currentLibId) || { name: DEFAULT_LIBRARY_NAME };
+
+  if (libTitleElem) libTitleElem.innerText = currentLib.name;
+
+  renderGenreTabs();
 
   const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
-  let books = getStoredBooks();
+  let allBooks = getStoredBooks();
+
+  // Filter books by active library
+  let books = allBooks.filter(b => (b.libraryId || DEFAULT_LIBRARY_ID) === currentLibId);
 
   const lang = getCurrentLang();
   const t = TRANSLATIONS[lang] || TRANSLATIONS.cs;
 
   books.sort((a, b) => (a.title || '').localeCompare(b.title || '', lang, { sensitivity: 'base' }));
+
+  // Filter by genre tab
+  if (selectedGenreFilter !== 'all') {
+    books = books.filter(b => (b.genre || 'roman') === selectedGenreFilter);
+  }
 
   if (query) {
     books = books.filter(b =>
@@ -1325,12 +1538,20 @@ function renderLibrary() {
       metaText += metaText ? ` (${pagesStr})` : pagesStr;
     }
 
+    const bookGenre = BOOK_GENRES.find(g => g.id === (book.genre || 'roman')) || BOOK_GENRES[0];
+    const textColor = bookGenre.textColor || '#FFFFFF';
+
     html += `
       <div class="book-card" ${anchorAttr}>
         ${coverHtml}
         <div class="book-info">
           <div class="book-title">${escapeHtml(book.title || 'Neznámý název')}</div>
           <div class="book-author">${escapeHtml(book.author || 'Neznámý autor')}</div>
+          <div style="margin: 4px 0 2px 0;">
+            <span class="genre-badge" style="background-color: ${bookGenre.color}; color: ${textColor}; font-size: 11px; padding: 2px 7px; border-radius: 6px; font-weight: 700; display: inline-block;">
+              ${escapeHtml(bookGenre.name)}
+            </span>
+          </div>
           ${metaText ? `<div class="book-meta"><span>${metaText}</span></div>` : ''}
         </div>
         <div class="book-actions">
@@ -1755,6 +1976,80 @@ function handleCoverError(imgElement) {
   if (imgElement.parentNode) {
     imgElement.parentNode.replaceChild(placeholder, imgElement);
   }
+}
+
+// --- GENRE CONFIGURATION & AUTOMATIC CLASSIFICATION ---
+
+const BOOK_GENRES = [
+  {
+    id: "roman",
+    name: "Román",
+    color: "#FF4500",
+    description: "Rozsáhlý vyprávěcí příběh s propracovaným dějem a postavami."
+  },
+  {
+    id: "detektivka",
+    name: "Detektivka",
+    color: "#1E90FF",
+    description: "Příběh o vyšetřování zločinu a hledání pachatele."
+  },
+  {
+    id: "thriller",
+    name: "Thriller a napětí",
+    color: "#FFD700",
+    textColor: "#000000",
+    description: "Dramatické dílo s vysokou mírou napětí a nebezpečí."
+  },
+  {
+    id: "scifi",
+    name: "Sci-fi",
+    color: "#5F9EA0",
+    description: "Příběhy založené na vědeckých objevech, vesmíru nebo budoucích technologiích."
+  },
+  {
+    id: "fantasy",
+    name: "Fantasy",
+    color: "#8A2BE2",
+    description: "Světy s prvky magie, nadpřirozena nebo mýtických bytostí."
+  },
+  {
+    id: "horor",
+    name: "Horor",
+    color: "#2E8B57",
+    description: "Literatura budící strach, úzkost nebo napětí prostřednictvím temných motivů."
+  },
+  {
+    id: "romantika",
+    name: "Romantické knihy",
+    color: "#FFB6C1",
+    textColor: "#000000",
+    description: "Důraz na milostné vztahy a citový vývoj postav."
+  }
+];
+
+function detectBookGenre(title = '', author = '', description = '') {
+  const text = `${title} ${author} ${description}`.toLowerCase();
+
+  if (/(detektiv|vražd|zločin|sherlock|holmes|christie|inspektor|vyšetř|kriminál|záhad)/i.test(text)) {
+    return BOOK_GENRES.find(g => g.id === 'detektivka');
+  }
+  if (/(sci-fi|scifi|vědeckofantast|vesmír|robot|mlok|krakatit|1984|orwell|marťan|budouc|technolog|dystop|kyber)/i.test(text)) {
+    return BOOK_GENRES.find(g => g.id === 'scifi');
+  }
+  if (/(fantasy|tolkien|hobit|prsten|magie|čaroděj|meč|drak|mýt|elf|trpaslík)/i.test(text)) {
+    return BOOK_GENRES.find(g => g.id === 'fantasy');
+  }
+  if (/(horor|strach|upír|fuks|spalovač|duch|strašid|temný|děs|monstrum|proklet)/i.test(text)) {
+    return BOOK_GENRES.find(g => g.id === 'horor');
+  }
+  if (/(romant|láska|milost|austen|brontë|eyrová|pýcha a předsudek|polibek|srdce|vášeň)/i.test(text)) {
+    return BOOK_GENRES.find(g => g.id === 'romantika');
+  }
+  if (/(thriller|napětí|katastrof|drama|nebezpečí|psycholog|oběť|štvanec|vrah)/i.test(text)) {
+    return BOOK_GENRES.find(g => g.id === 'thriller');
+  }
+
+  return BOOK_GENRES.find(g => g.id === 'roman');
 }
 
 // Helper to escape HTML strings
