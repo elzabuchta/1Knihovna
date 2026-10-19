@@ -182,11 +182,15 @@
 
           <div class="libraries-grid" id="libraries-grid"></div>
 
-          <!-- Color map / Legend for genres -->
+          <!-- Collapsible Color map / Legend for genres -->
           <div class="genre-legend-card" id="genre-legend-card">
-            <h3>Vysvětlivky barev žánrů</h3>
-            <p class="legend-subtitle">Každá kniha má barevný štítek podle žánru:</p>
-            <div class="genre-legend-grid" id="genre-legend-grid"></div>
+            <button class="legend-toggle-btn" onclick="toggleGenreLegend()" id="legend-toggle-btn">
+              <span>Barvy žánrů</span> <span id="legend-arrow-icon">▼</span>
+            </button>
+            <div class="legend-content hidden" id="legend-content-wrapper">
+              <p class="legend-subtitle">Každá kniha má barevný štítek podle žánru:</p>
+              <div class="genre-legend-grid" id="genre-legend-grid"></div>
+            </div>
           </div>
         </div>
       </section>

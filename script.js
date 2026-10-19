@@ -15,6 +15,85 @@ const DEFAULT_LIBRARY_NAME = 'Oblíbené knihy';
 let activeLibraryId = DEFAULT_LIBRARY_ID;
 let selectedGenreFilter = 'all';
 
+// --- GENRE CONFIGURATION & AUTOMATIC CLASSIFICATION ---
+
+const BOOK_GENRES = [
+  {
+    id: "roman",
+    name: "Román",
+    color: "#D32F2F", // Rich Red
+    textColor: "#FFFFFF",
+    description: "Rozsáhlý vyprávěcí příběh s propracovaným dějem a postavami."
+  },
+  {
+    id: "detektivka",
+    name: "Detektivka",
+    color: "#1976D2", // Rich Blue
+    textColor: "#FFFFFF",
+    description: "Příběh o vyšetřování zločinu a hledání pachatele."
+  },
+  {
+    id: "thriller",
+    name: "Thriller a napětí",
+    color: "#E6B800", // Rich Warm Yellow
+    textColor: "#000000",
+    description: "Dramatické dílo s vysokou mírou napětí a nebezpečí."
+  },
+  {
+    id: "scifi",
+    name: "Sci-fi",
+    color: "#00838F", // Rich Teal/Cyan
+    textColor: "#FFFFFF",
+    description: "Příběhy založené na vědeckých objevech, vesmíru nebo budoucích technologiích."
+  },
+  {
+    id: "fantasy",
+    name: "Fantasy",
+    color: "#7B1FA2", // Rich Purple
+    textColor: "#FFFFFF",
+    description: "Světy s prvky magie, nadpřirozena nebo mýtických bytostí."
+  },
+  {
+    id: "horor",
+    name: "Horor",
+    color: "#2E7D32", // Rich Green
+    textColor: "#FFFFFF",
+    description: "Literatura budící strach, úzkost nebo napětí prostřednictvím temných motivů."
+  },
+  {
+    id: "romantika",
+    name: "Romantické knihy",
+    color: "#E91E63", // Rich Pink
+    textColor: "#FFFFFF",
+    description: "Důraz na milostné vztahy a citový vývoj postav."
+  }
+];
+
+function detectBookGenre(title = '', author = '', description = '') {
+  const text = `${title} ${author} ${description}`.toLowerCase();
+
+  if (/(detektiv|vražd|zločin|sherlock|holmes|christie|inspektor|vyšetř|kriminál|záhad)/i.test(text)) {
+    return BOOK_GENRES.find(g => g.id === 'detektivka');
+  }
+  if (/(sci-fi|scifi|vědeckofantast|vesmír|robot|mlok|krakatit|1984|orwell|marťan|budouc|technolog|dystop|kyber)/i.test(text)) {
+    return BOOK_GENRES.find(g => g.id === 'scifi');
+  }
+  if (/(fantasy|tolkien|hobit|prsten|magie|čaroděj|meč|drak|mýt|elf|trpaslík)/i.test(text)) {
+    return BOOK_GENRES.find(g => g.id === 'fantasy');
+  }
+  if (/(horor|strach|upír|fuks|spalovač|duch|strašid|temný|děs|monstrum|proklet)/i.test(text)) {
+    return BOOK_GENRES.find(g => g.id === 'horor');
+  }
+  if (/(romant|láska|milost|austen|brontë|eyrová|pýcha a předsudek|polibek|srdce|vášeň)/i.test(text)) {
+    return BOOK_GENRES.find(g => g.id === 'romantika');
+  }
+  if (/(thriller|napětí|katastrof|drama|nebezpečí|psycholog|oběť|štvanec|vrah)/i.test(text)) {
+    return BOOK_GENRES.find(g => g.id === 'thriller');
+  }
+
+  return BOOK_GENRES.find(g => g.id === 'roman');
+}
+
 let html5QrCode = null;
 let isScannerRunning = false;
 let isProcessingScan = false;
@@ -1261,6 +1340,20 @@ function renderLibrarySelector() {
   renderGenreLegendMap();
 }
 
+function toggleGenreLegend() {
+  const contentWrapper = document.getElementById('legend-content-wrapper');
+  const arrowIcon = document.getElementById('legend-arrow-icon');
+  if (!contentWrapper) return;
+
+  if (contentWrapper.classList.contains('hidden')) {
+    contentWrapper.classList.remove('hidden');
+    if (arrowIcon) arrowIcon.innerText = '▲';
+  } else {
+    contentWrapper.classList.add('hidden');
+    if (arrowIcon) arrowIcon.innerText = '▼';
+  }
+}
+
 function renderGenreLegendMap() {
   const legendGrid = document.getElementById('genre-legend-grid');
   if (!legendGrid) return;
@@ -1270,7 +1363,7 @@ function renderGenreLegendMap() {
     const textColor = genre.textColor || '#FFFFFF';
     html += `
       <div class="legend-item" style="border-left: 6px solid ${genre.color};">
-        <span class="genre-pill" style="background-color: ${genre.color}; color: ${textColor};">${escapeHtml(genre.name)}</span>
+        <span class="genre-pill" style="background-color: ${genre.color}; color: ${textColor}; font-weight: 800;">${escapeHtml(genre.name)}</span>
         <p class="legend-desc">${escapeHtml(genre.description)}</p>
       </div>
     `;
@@ -1978,79 +2071,6 @@ function handleCoverError(imgElement) {
   }
 }
 
-// --- GENRE CONFIGURATION & AUTOMATIC CLASSIFICATION ---
-
-const BOOK_GENRES = [
-  {
-    id: "roman",
-    name: "Román",
-    color: "#FF4500",
-    description: "Rozsáhlý vyprávěcí příběh s propracovaným dějem a postavami."
-  },
-  {
-    id: "detektivka",
-    name: "Detektivka",
-    color: "#1E90FF",
-    description: "Příběh o vyšetřování zločinu a hledání pachatele."
-  },
-  {
-    id: "thriller",
-    name: "Thriller a napětí",
-    color: "#FFD700",
-    textColor: "#000000",
-    description: "Dramatické dílo s vysokou mírou napětí a nebezpečí."
-  },
-  {
-    id: "scifi",
-    name: "Sci-fi",
-    color: "#5F9EA0",
-    description: "Příběhy založené na vědeckých objevech, vesmíru nebo budoucích technologiích."
-  },
-  {
-    id: "fantasy",
-    name: "Fantasy",
-    color: "#8A2BE2",
-    description: "Světy s prvky magie, nadpřirozena nebo mýtických bytostí."
-  },
-  {
-    id: "horor",
-    name: "Horor",
-    color: "#2E8B57",
-    description: "Literatura budící strach, úzkost nebo napětí prostřednictvím temných motivů."
-  },
-  {
-    id: "romantika",
-    name: "Romantické knihy",
-    color: "#FFB6C1",
-    textColor: "#000000",
-    description: "Důraz na milostné vztahy a citový vývoj postav."
-  }
-];
-
-function detectBookGenre(title = '', author = '', description = '') {
-  const text = `${title} ${author} ${description}`.toLowerCase();
-
-  if (/(detektiv|vražd|zločin|sherlock|holmes|christie|inspektor|vyšetř|kriminál|záhad)/i.test(text)) {
-    return BOOK_GENRES.find(g => g.id === 'detektivka');
-  }
-  if (/(sci-fi|scifi|vědeckofantast|vesmír|robot|mlok|krakatit|1984|orwell|marťan|budouc|technolog|dystop|kyber)/i.test(text)) {
-    return BOOK_GENRES.find(g => g.id === 'scifi');
-  }
-  if (/(fantasy|tolkien|hobit|prsten|magie|čaroděj|meč|drak|mýt|elf|trpaslík)/i.test(text)) {
-    return BOOK_GENRES.find(g => g.id === 'fantasy');
-  }
-  if (/(horor|strach|upír|fuks|spalovač|duch|strašid|temný|děs|monstrum|proklet)/i.test(text)) {
-    return BOOK_GENRES.find(g => g.id === 'horor');
-  }
-  if (/(romant|láska|milost|austen|brontë|eyrová|pýcha a předsudek|polibek|srdce|vášeň)/i.test(text)) {
-    return BOOK_GENRES.find(g => g.id === 'romantika');
-  }
-  if (/(thriller|napětí|katastrof|drama|nebezpečí|psycholog|oběť|štvanec|vrah)/i.test(text)) {
-    return BOOK_GENRES.find(g => g.id === 'thriller');
-  }
-
-  return BOOK_GENRES.find(g => g.id === 'roman');
-}
 
 // Helper to escape HTML strings
 function escapeHtml(str) {
