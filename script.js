@@ -14,6 +14,51 @@ const DEFAULT_LIBRARY_NAME = 'Oblíbené knihy';
 
 let activeLibraryId = DEFAULT_LIBRARY_ID;
 let selectedGenreFilter = 'all';
+let currentLibrarySortMode = 'added_desc';
+
+function openScannerForCurrentLibrary() {
+  navigateTo('screen-scanner');
+}
+
+function handleSortChange(event) {
+  currentLibrarySortMode = event.target.value;
+  renderLibrary();
+}
+
+function moveBookInLibrary(bookId, direction, event) {
+  if (event) event.stopPropagation();
+
+  const currentLibId = getActiveLibraryId();
+  const books = getStoredBooks();
+
+  // Find index among books in this library
+  const libBooks = books.filter(b => {
+    const libIds = Array.isArray(b.libraryIds) ? b.libraryIds : [b.libraryId || DEFAULT_LIBRARY_ID];
+    if (currentLibId === DEFAULT_LIBRARY_ID && b.isFavorite) return true;
+    return libIds.includes(currentLibId);
+  });
+
+  const idx = libBooks.findIndex(b => b.id === bookId);
+  if (idx === -1) return;
+
+  const targetIdx = idx + direction;
+  if (targetIdx < 0 || targetIdx >= libBooks.length) return;
+
+  // Swap order property or array positions in main books array
+  const itemA = libBooks[idx];
+  const itemB = libBooks[targetIdx];
+
+  const posA = books.findIndex(b => b.id === itemA.id);
+  const posB = books.findIndex(b => b.id === itemB.id);
+
+  if (posA !== -1 && posB !== -1) {
+    const temp = books[posA];
+    books[posA] = books[posB];
+    books[posB] = temp;
+    saveStoredBooks(books);
+    renderLibrary();
+  }
+}
 
 // --- GENRE CONFIGURATION & AUTOMATIC CLASSIFICATION ---
 
@@ -1679,12 +1724,20 @@ function renderLibrary() {
   const lang = getCurrentLang();
   const t = TRANSLATIONS[lang] || TRANSLATIONS.cs;
 
-  books.sort((a, b) => (a.title || '').localeCompare(b.title || '', lang, { sensitivity: 'base' }));
-
   // Filter by genre tab
   if (selectedGenreFilter !== 'all') {
     books = books.filter(b => (b.genre || 'roman') === selectedGenreFilter);
   }
+
+  // Sort books according to currentLibrarySortMode
+  if (currentLibrarySortMode === 'alpha_asc') {
+    books.sort((a, b) => (a.title || '').localeCompare(b.title || '', lang, { sensitivity: 'base' }));
+  } else if (currentLibrarySortMode === 'added_desc') {
+    books.sort((a, b) => new Date(b.addedAt || 0) - new Date(a.addedAt || 0));
+  } else if (currentLibrarySortMode === 'modified_desc') {
+    books.sort((a, b) => new Date(b.modifiedAt || b.addedAt || 0) - new Date(a.modifiedAt || a.addedAt || 0));
+  }
+  // If 'manual', keep current array index sequence
 
   if (query) {
     books = books.filter(b =>
@@ -1758,16 +1811,24 @@ function renderLibrary() {
 
     const isFav = !!book.isFavorite;
 
+    const isManualSort = currentLibrarySortMode === 'manual';
+
     html += `
       <div class="book-card" ${anchorAttr}>
         ${coverHtml}
         <div class="book-info">
           <div class="book-title">${escapeHtml(book.title || 'Neznámý název')}</div>
           <div class="book-author">${escapeHtml(book.author || 'Neznámý autor')}</div>
-          <div style="margin: 4px 0 2px 0;">
+          <div style="margin: 4px 0 2px 0; display: flex; align-items: center; gap: 6px;">
             <span class="genre-badge" style="background-color: ${bookGenre.color}; color: ${textColor}; font-size: 11px; padding: 2px 7px; border-radius: 6px; font-weight: 700; display: inline-block;">
               ${escapeHtml(bookGenre.name)}
             </span>
+            ${isManualSort ? `
+              <div style="display: inline-flex; gap: 2px; margin-left: 4px;">
+                <button class="manual-reorder-btn" onclick="moveBookInLibrary('${book.id}', -1, event)" title="Posunout nahoru">⬆️</button>
+                <button class="manual-reorder-btn" onclick="moveBookInLibrary('${book.id}', 1, event)" title="Posunout dolů">⬇️</button>
+              </div>
+            ` : ''}
           </div>
           ${metaText ? `<div class="book-meta"><span>${metaText}</span></div>` : ''}
         </div>

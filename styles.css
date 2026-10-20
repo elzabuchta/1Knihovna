@@ -494,6 +494,51 @@ body {
   gap: 12px;
 }
 
+.add-next-book-btn {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 14px;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: var(--shadow-chunky);
+}
+
+.sort-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background-color: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+
+.mini-select {
+  padding: 6px 10px;
+  font-size: 13px;
+  border-radius: 10px;
+  max-width: 60%;
+}
+
+.manual-reorder-btn {
+  background: var(--bg-card);
+  border: 2px solid var(--border-color);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 8px;
+  font-size: 12px;
+  transition: all 0.15s ease;
+}
+
+.manual-reorder-btn:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--accent-color);
+}
+
 .add-library-pill-btn {
   display: inline-flex;
   align-items: center;

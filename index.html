@@ -206,6 +206,23 @@
         </div>
 
         <div class="library-controls">
+          <!-- Big Add Book Button in Current Library -->
+          <button class="chunky-btn primary-btn large-btn add-next-book-btn" onclick="openScannerForCurrentLibrary()">
+            <svg class="svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            <strong>Nahrát další knihu do této knihovny</strong>
+          </button>
+
+          <!-- Sorting controls row -->
+          <div class="sort-controls-row">
+            <label for="library-sort-select" class="input-label" style="font-size: 13px; margin: 0;">Řadit dle:</label>
+            <select id="library-sort-select" class="chunky-select mini-select" onchange="handleSortChange(event)">
+              <option value="alpha_asc">Abecedně (A - Z)</option>
+              <option value="added_desc" selected>Poslední přidané</option>
+              <option value="modified_desc">Datum změny</option>
+              <option value="manual">Manuální řazení ↕️</option>
+            </select>
+          </div>
+
           <!-- Genre filter tabs -->
           <div class="genre-tabs-container" id="genre-tabs-container"></div>
 
