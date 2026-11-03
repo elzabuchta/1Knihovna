@@ -833,7 +833,12 @@ function onBarcodeScanError(errorMessage) {}
 
 function normalizeIsbn(inputStr) {
   if (!inputStr) return '';
-  return inputStr.replace(/[^0-9Xx]/g, '').toUpperCase();
+  // Strip words like ISBN, ISBN-10, ISBN-13, EAN, brackets, hyphens, spaces, colons
+  let cleaned = inputStr
+    .replace(/^(?:ISBN(?:-1[03])?|EAN)[-:\s]*/i, '')
+    .replace(/[^0-9Xx]/g, '')
+    .toUpperCase();
+  return cleaned;
 }
 
 function convertIsbnTo13(inputIsbn) {
@@ -881,12 +886,18 @@ function cleanAuthorName(nameWithYears) {
 function handleManualIsbnSubmit(event) {
   event.preventDefault();
   const inputElem = document.getElementById('isbn-input');
-  const cleanIsbn = normalizeIsbn(inputElem.value);
+  if (!inputElem) return;
+
+  const rawValue = inputElem.value.trim();
+  const cleanIsbn = normalizeIsbn(rawValue);
 
   if (!cleanIsbn || !isValidIsbn(cleanIsbn)) {
-    alert("Zadané číslo neni platné ISBN.");
+    alert("Zadejte prosím platné 10místné nebo 13místné ISBN (např. 978-80-257-0367-0 nebo 8025703670).");
     return;
   }
+
+  // Ensure camera scanning doesn't conflict
+  stopCameraScanner();
 
   processIsbnSearch(cleanIsbn);
 }
