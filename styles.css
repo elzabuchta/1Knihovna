@@ -66,6 +66,57 @@ body {
   justify-content: center;
 }
 
+.search-mode-tabs {
+  display: flex;
+  gap: 8px;
+  background-color: var(--bg-card);
+  padding: 4px;
+  border-radius: 14px;
+  border: 2px solid var(--border-color);
+}
+
+.search-mode-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.search-mode-tab.active {
+  background-color: var(--accent-color);
+  color: #ffffff;
+}
+
+.edition-card-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: var(--bg-card);
+  border: 2px solid var(--border-color);
+  border-radius: 14px;
+  padding: 10px;
+  transition: border-color 0.15s ease;
+}
+
+.edition-card-item:hover {
+  border-color: var(--accent-color);
+}
+
+.edition-cover-img {
+  width: 50px;
+  height: 70px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
 /* Vector SVG Icon Styles */
 .svg-icon {
   width: 22px;
@@ -809,30 +860,46 @@ body {
   top: 70px;
   height: calc(100vh - 180px);
   max-height: 520px;
-  width: 28px;
+  width: 32px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   align-items: center;
   background-color: var(--bg-secondary);
   border: 2px solid var(--border-color);
   border-radius: 14px;
-  padding: 4px 0;
+  padding: 6px 0;
   user-select: none;
   z-index: 10;
+  overflow-y: auto;
+  scrollbar-width: none; /* Hide scrollbar for clean touch look */
+  -ms-overflow-style: none;
+  gap: 2px;
+}
+
+.alphabet-sidebar::-webkit-scrollbar {
+  display: none;
 }
 
 .alpha-letter {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   color: var(--text-muted);
   background: none;
   border: none;
   cursor: pointer;
-  padding: 1px 2px;
+  padding: 4px 0;
   width: 100%;
   text-align: center;
   border-radius: 4px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.alpha-letter.selected {
+  background-color: var(--accent-color);
+  color: #ffffff !important;
+  font-weight: 900;
+  transform: scale(1.15);
 }
 
 .alpha-letter.active,

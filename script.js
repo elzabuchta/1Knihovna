@@ -14,6 +14,7 @@ const DEFAULT_LIBRARY_NAME = 'Oblíbené knihy';
 
 let activeLibraryId = DEFAULT_LIBRARY_ID;
 let selectedGenreFilter = 'all';
+let selectedLetterFilter = null;
 let currentLibrarySortMode = 'added_desc';
 
 function openScannerForCurrentLibrary() {
@@ -883,6 +884,26 @@ function cleanAuthorName(nameWithYears) {
   return nameWithYears.replace(/,\s*(?:asi\s*)?\d{3,4}.*$/i, '').trim();
 }
 
+function switchSearchMode(mode) {
+  const tabIsbn = document.getElementById('tab-mode-isbn');
+  const tabTitle = document.getElementById('tab-mode-title');
+  const formIsbn = document.getElementById('manual-isbn-form');
+  const formTitle = document.getElementById('title-search-form');
+
+  if (mode === 'title') {
+    if (tabIsbn) tabIsbn.classList.remove('active');
+    if (tabTitle) tabTitle.classList.add('active');
+    if (formIsbn) formIsbn.classList.add('hidden');
+    if (formTitle) formTitle.classList.remove('hidden');
+    stopCameraScanner();
+  } else {
+    if (tabTitle) tabTitle.classList.remove('active');
+    if (tabIsbn) tabIsbn.classList.add('active');
+    if (formTitle) formTitle.classList.add('hidden');
+    if (formIsbn) formIsbn.classList.remove('hidden');
+  }
+}
+
 function handleManualIsbnSubmit(event) {
   event.preventDefault();
   const inputElem = document.getElementById('isbn-input');
@@ -900,6 +921,214 @@ function handleManualIsbnSubmit(event) {
   stopCameraScanner();
 
   processIsbnSearch(cleanIsbn);
+}
+
+async function handleTitleSearchSubmit(event) {
+  event.preventDefault();
+  const inputElem = document.getElementById('title-search-input');
+  if (!inputElem) return;
+
+  const titleQuery = inputElem.value.trim();
+  if (!titleQuery) {
+    alert("Zadejte prosím název knihy.");
+    return;
+  }
+
+  showLoadingModal("Vyhledávám vydání knihy v Knihovny.cz...");
+
+  try {
+    const editions = await searchBooksByTitleKnihovnyCz(titleQuery);
+    hideLoadingModal();
+
+    if (!editions || editions.length === 0) {
+      showErrorModal(`Pro název "${escapeHtml(titleQuery)}" nebyla nalezena žádná kniha.`);
+      return;
+    }
+
+    showEditionsResultModal(editions);
+  } catch (err) {
+    hideLoadingModal();
+    showErrorModal("Chyba při vyhledávání knih dle názvu.");
+  }
+}
+
+async function searchBooksByTitleKnihovnyCz(titleQuery) {
+  const fields = [
+    'id', 'title', 'authors', 'publishers', 'placesOfPublication',
+    'publicationDates', 'physicalDescriptions', 'isbns', 'issns', 'cnb', 'formats'
+  ];
+
+  const params = new URLSearchParams({
+    lookfor: titleQuery,
+    type: 'Title',
+    limit: '20'
+  });
+  for (const field of fields) {
+    params.append('field[]', field);
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const url = 'https://www.knihovny.cz/api/v1/search?' + params.toString();
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    const records = data.records ?? [];
+
+    // Filter books only ("0/BOOKS/") as per instructions
+    const bookRecords = records.filter(r => {
+      const formats = r.formats ?? [];
+      return formats.some(f => f.includes('0/BOOKS/'));
+    });
+
+    return bookRecords.map(rec => {
+      let rawTitle = rec.title ?? rec.shortTitle ?? '';
+      if (rec.subTitle) rawTitle += `: ${rec.subTitle}`;
+      const title = trimCatalogPunctuation(rawTitle);
+
+      let authorNames = [];
+      if (rec.authors?.primary && typeof rec.authors.primary === 'object') {
+        const primaryKeys = Object.keys(rec.authors.primary);
+        authorNames.push(...primaryKeys.map(cleanAuthorName));
+      }
+      if (authorNames.length === 0 && rec.authors?.secondary && typeof rec.authors.secondary === 'object') {
+        const secondaryKeys = Object.keys(rec.authors.secondary);
+        authorNames.push(...secondaryKeys.map(cleanAuthorName));
+      }
+      const author = authorNames.filter(Boolean).join(', ');
+
+      const rawPublisher = rec.publishers?.[0] ?? '';
+      const publisher = trimCatalogPunctuation(rawPublisher);
+
+      let year = '';
+      const rawDateStr = rec.publicationDates?.[0] ?? '';
+      const yearMatch = rawDateStr.match(/\d{4}/);
+      if (yearMatch) {
+        year = yearMatch[0];
+      }
+
+      const pages = rec.physicalDescriptions?.[0] ?? '';
+      let cover = rec.cover ?? '';
+      if (!cover && rec.id) {
+        cover = `https://www.knihovny.cz/Cover/Show?id=${encodeURIComponent(rec.id)}&size=medium`;
+      }
+
+      const rawIsbn = rec.isbns?.[0] ?? '';
+      const cleanIsbn13 = rawIsbn ? convertIsbnTo13(rawIsbn) : '';
+
+      return {
+        id: rec.id,
+        isbn: cleanIsbn13 || rawIsbn,
+        title: title,
+        author: author,
+        year: year,
+        publisher: publisher,
+        pages: pages,
+        cover: cover
+      };
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    console.warn("Title search failed:", err);
+    return [];
+  }
+}
+
+let currentFoundEditions = [];
+
+function showEditionsResultModal(editions) {
+  currentFoundEditions = editions;
+  const modal = document.getElementById('modal-editions-result');
+  const listElem = document.getElementById('modal-editions-list');
+  const targetSelect = document.getElementById('editions-target-library-select');
+
+  const libs = getStoredLibraries();
+  const currentLibId = getActiveLibraryId();
+  if (targetSelect) {
+    targetSelect.innerHTML = libs.map(l =>
+      `<option value="${l.id}" ${l.id === currentLibId ? 'selected' : ''}>${escapeHtml(l.name)}</option>`
+    ).join('');
+  }
+
+  let html = '';
+  editions.forEach((ed, idx) => {
+    const detectedGenre = detectBookGenre(ed.title, ed.author, '');
+    const coverSrc = ed.cover ? ed.cover : '';
+    const bookSvgPlaceholder = `<div class="book-cover-placeholder" style="width: 50px; height: 70px;"><svg class="svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></svg></div>`;
+    const coverHtml = coverSrc
+      ? `<img src="${escapeHtml(coverSrc)}" alt="Obálka" class="edition-cover-img" onerror="handleCoverError(this)" />`
+      : bookSvgPlaceholder;
+
+    html += `
+      <div class="edition-card-item">
+        ${coverHtml}
+        <div style="flex: 1; min-width: 0;">
+          <h4 style="font-size: 14px; font-weight: 800; margin-bottom: 2px;">${escapeHtml(ed.title)}</h4>
+          <div style="font-size: 12px; color: var(--accent-color); font-weight: 600;">${escapeHtml(ed.author || 'Autor neuveden')}</div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+            ${ed.year ? `<span>Rok: ${escapeHtml(ed.year)}</span>` : ''}
+            ${ed.publisher ? `<span> • ${escapeHtml(ed.publisher)}</span>` : ''}
+            ${ed.pages ? `<span> • ${escapeHtml(ed.pages)}</span>` : ''}
+          </div>
+          ${ed.isbn ? `<div style="font-size: 11px; color: var(--text-muted); margin-top: 1px;">ISBN: ${escapeHtml(ed.isbn)}</div>` : ''}
+          <div style="margin-top: 4px;">
+            <span class="genre-badge" style="background-color: ${detectedGenre.color}; color: ${detectedGenre.textColor || '#FFF'}; font-size: 10px; padding: 1px 6px;">
+              ${escapeHtml(detectedGenre.name)}
+            </span>
+          </div>
+        </div>
+        <button class="chunky-btn primary-btn mini-btn" onclick="saveSelectedEdition(${idx})" style="white-space: nowrap;">
+          + Uložit
+        </button>
+      </div>
+    `;
+  });
+
+  listElem.innerHTML = html;
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeEditionsModal() {
+  const modal = document.getElementById('modal-editions-result');
+  if (modal) modal.classList.add('hidden');
+  currentFoundEditions = [];
+}
+
+function saveSelectedEdition(idx) {
+  const edition = currentFoundEditions[idx];
+  if (!edition) return;
+
+  const targetSelect = document.getElementById('editions-target-library-select');
+  const targetLibId = targetSelect ? targetSelect.value : getActiveLibraryId();
+
+  const detectedGenre = detectBookGenre(edition.title, edition.author, '');
+  const isFav = targetLibId === DEFAULT_LIBRARY_ID;
+  const initialLibIds = [targetLibId];
+  if (isFav && !initialLibIds.includes(DEFAULT_LIBRARY_ID)) {
+    initialLibIds.push(DEFAULT_LIBRARY_ID);
+  }
+
+  const books = getStoredBooks();
+  const newEntry = {
+    ...edition,
+    id: 'book_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+    libraryId: targetLibId,
+    libraryIds: initialLibIds,
+    isFavorite: isFav,
+    genre: detectedGenre.id,
+    addedAt: new Date().toISOString()
+  };
+
+  books.push(newEntry);
+  saveStoredBooks(books);
+
+  closeEditionsModal();
+  openSpecificLibrary(targetLibId);
 }
 
 
@@ -1726,11 +1955,13 @@ function renderLibrary() {
   let allBooks = getStoredBooks();
 
   // Filter books by active library
-  let books = allBooks.filter(b => {
+  let baseLibraryBooks = allBooks.filter(b => {
     const libIds = Array.isArray(b.libraryIds) ? b.libraryIds : [b.libraryId || DEFAULT_LIBRARY_ID];
     if (currentLibId === DEFAULT_LIBRARY_ID && b.isFavorite) return true;
     return libIds.includes(currentLibId);
   });
+
+  let books = [...baseLibraryBooks];
 
   const lang = getCurrentLang();
   const t = TRANSLATIONS[lang] || TRANSLATIONS.cs;
@@ -1738,6 +1969,11 @@ function renderLibrary() {
   // Filter by genre tab
   if (selectedGenreFilter !== 'all') {
     books = books.filter(b => (b.genre || 'roman') === selectedGenreFilter);
+  }
+
+  // Filter by selected alphabet letter
+  if (selectedLetterFilter) {
+    books = books.filter(b => getFirstLetter(b.title) === selectedLetterFilter);
   }
 
   // Sort books according to currentLibrarySortMode
@@ -1759,7 +1995,7 @@ function renderLibrary() {
   }
 
   updateMenuBookCount();
-  renderAlphabetSidebar(books);
+  renderAlphabetSidebar(baseLibraryBooks);
 
   if (books.length === 0) {
     if (query) {
@@ -1767,6 +2003,16 @@ function renderLibrary() {
         <div class="empty-library">
           <h3>${t.no_search_results}</h3>
           <p>Nenalezena žádná kniha odpovídající "<strong>${escapeHtml(query)}</strong>".</p>
+        </div>
+      `;
+    } else if (selectedLetterFilter) {
+      booksListElem.innerHTML = `
+        <div class="empty-library">
+          <h3>Žádné knihy na písmeno ${escapeHtml(selectedLetterFilter)}</h3>
+          <p>V této knihovně zatím nemáte žádnou knihu začínající písmenem <strong>${escapeHtml(selectedLetterFilter)}</strong>.</p>
+          <button class="chunky-btn secondary-btn" onclick="selectLetterFilter(null)" style="margin-top: 14px;">
+            Zobrazit všechny knihy
+          </button>
         </div>
       `;
     } else {
@@ -1864,21 +2110,37 @@ function renderLibrary() {
   booksListElem.innerHTML = html;
 }
 
-function renderAlphabetSidebar(books) {
+function renderAlphabetSidebar(allLibraryBooks) {
   const sidebarElem = document.getElementById('alphabet-sidebar');
   if (!sidebarElem) return;
 
   const presentLetters = new Set();
-  books.forEach(b => {
+  allLibraryBooks.forEach(b => {
     presentLetters.add(getFirstLetter(b.title));
   });
 
   let html = '';
+  const isAllActive = !selectedLetterFilter ? 'selected' : '';
+  html += `
+    <button class="alpha-letter ${isAllActive}" onclick="selectLetterFilter(null)" title="Všechny knihy">
+      *
+    </button>
+  `;
+
   CZECH_ALPHABET.forEach(lettr => {
     const isPresent = presentLetters.has(lettr);
-    const activeClass = isPresent ? 'active' : '';
+    const isSelected = selectedLetterFilter === lettr;
+    let classes = 'alpha-letter';
+    if (isSelected) classes += ' selected';
+    else if (isPresent) classes += ' active';
+
     html += `
-      <button class="alpha-letter ${activeClass}" onclick="scrollToLetter('${lettr}')" ${!isPresent ? 'disabled style="opacity: 0.3;"' : ''}>
+      <button
+        class="${classes}"
+        onclick="selectLetterFilter('${lettr}')"
+        ${!isPresent ? 'disabled style="opacity: 0.25; cursor: default;"' : ''}
+        title="Knihy začínající na ${lettr}"
+      >
         ${lettr}
       </button>
     `;
@@ -1887,11 +2149,17 @@ function renderAlphabetSidebar(books) {
   sidebarElem.innerHTML = html;
 }
 
-function scrollToLetter(letter) {
-  const targetElem = document.getElementById(`letter-group-${letter}`);
-  if (targetElem) {
-    targetElem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+function selectLetterFilter(letter) {
+  if (selectedLetterFilter === letter) {
+    selectedLetterFilter = null;
+  } else {
+    selectedLetterFilter = letter;
   }
+  renderLibrary();
+}
+
+function scrollToLetter(letter) {
+  selectLetterFilter(letter);
 }
 
 function filterLibraryBooks() {
