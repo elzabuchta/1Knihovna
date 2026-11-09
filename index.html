@@ -80,6 +80,17 @@
             </span>
           </button>
 
+          <!-- 2B. Náhodný výběrce knih (Loterijní herní kolo) -->
+          <button class="chunky-btn secondary-btn rect-btn lottery-menu-btn" onclick="openLotteryWheelScreen()">
+            <span class="btn-icon">
+              <svg class="svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+            </span>
+            <span class="btn-text">
+              <strong>Náhodný výběrce knih</strong>
+              <small>Loterijní kolo štěstí – náhodný výběr knihy</small>
+            </span>
+          </button>
+
           <!-- 3. Doporučené knihy - Star Icon -->
           <button class="chunky-btn secondary-btn rect-btn" onclick="navigateTo('screen-monthly-books')">
             <span class="btn-icon">
@@ -289,6 +300,50 @@
         </div>
       </section>
 
+
+      <!-- SCREEN: LOTTERY WHEEL / NÁHODNÝ VÝBĚRCE KNIH -->
+      <section id="screen-lottery-wheel" class="screen">
+        <div class="screen-header">
+          <button class="chunky-btn back-btn" onclick="navigateTo('screen-main-menu')">
+            <svg class="svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg> <span data-i18n="btn_back">ZPĚT</span>
+          </button>
+          <h2>Náhodný výběrce knih</h2>
+        </div>
+
+        <div class="lottery-card">
+          <!-- Library / Book Filter controls for the Wheel -->
+          <div class="lottery-pool-header">
+            <div class="pool-select-row">
+              <label for="lottery-library-select" class="input-label" style="font-size: 13px; margin: 0;">Zvolit knihovnu:</label>
+              <select id="lottery-library-select" class="chunky-select mini-select" onchange="handleLotteryLibraryChange(event)">
+                <option value="__all__">Všechny knihovny</option>
+              </select>
+            </div>
+            <div class="pool-stats-row">
+              <span id="lottery-pool-count" class="lottery-pool-count-text">0 knih v osudí</span>
+              <button class="chunky-btn mini-btn outline-btn" onclick="openLotteryCustomPickModal()">
+                Vybrat konkrétní knihy ✏️
+              </button>
+            </div>
+          </div>
+
+          <!-- Wheel Container -->
+          <div class="wheel-stage">
+            <div class="wheel-pointer">▼</div>
+            <canvas id="lottery-canvas" width="360" height="360" class="wheel-canvas"></canvas>
+            <div class="wheel-center-cap">
+              <span>📚</span>
+            </div>
+          </div>
+
+          <!-- Green START Button below wheel -->
+          <div class="wheel-actions">
+            <button id="lottery-start-btn" class="chunky-btn lottery-start-btn" onclick="spinLotteryWheel()">
+              START
+            </button>
+          </div>
+        </div>
+      </section>
 
       <!-- SCREEN 4: RECOMMENDED BOOKS & REVIEWS -->
       <section id="screen-monthly-books" class="screen">
@@ -553,6 +608,54 @@
       </div>
     </div>
 
+
+    <!-- MODAL: LOTTERY CUSTOM BOOK PICKER -->
+    <div id="modal-lottery-picker" class="modal-overlay hidden">
+      <div class="modal-card chunky-modal" style="max-height: 85vh;">
+        <div class="modal-header">
+          <h3>Výběr knih do herního kola</h3>
+          <p style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">Zaškrtněte knihy, které se mají točit na kole:</p>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-top: 4px;">
+          <button class="chunky-btn mini-btn outline-btn" onclick="selectLotteryAllBooks(true)">Označit vše</button>
+          <button class="chunky-btn mini-btn outline-btn" onclick="selectLotteryAllBooks(false)">Odznačit vše</button>
+        </div>
+
+        <div class="modal-body" id="modal-lottery-books-list" style="overflow-y: auto; max-height: 50vh; display: flex; flex-direction: column; gap: 8px; margin-top: 8px;"></div>
+
+        <div class="modal-actions" style="margin-top: 10px;">
+          <button class="chunky-btn primary-btn" onclick="applyLotteryCustomPick()">
+            Potvrdit výběr
+          </button>
+          <button class="chunky-btn outline-btn" onclick="closeLotteryCustomPickModal()">
+            Zrušit
+          </button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- MODAL: LOTTERY WINNER CELEBRATION (JACKPOT / CONFETTI) -->
+    <div id="modal-lottery-winner" class="modal-overlay hidden">
+      <canvas id="confetti-canvas" class="confetti-canvas"></canvas>
+      <div class="modal-card chunky-modal lottery-winner-card">
+        <div class="lottery-winner-badge">
+          🎉 VÝHERNÍ KNIHA! 🎉
+        </div>
+
+        <div class="lottery-winner-body" id="lottery-winner-body"></div>
+
+        <div class="modal-actions" style="margin-top: 14px;">
+          <button class="chunky-btn lottery-start-btn" onclick="spinLotteryAgain()">
+            Točit znovu 🎲
+          </button>
+          <button class="chunky-btn outline-btn" onclick="closeLotteryWinnerModal()">
+            Zavřít
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- MODAL 4: USER PROFILE & PUBLIC LIBRARY VIEWER -->
     <div id="modal-user-profile" class="modal-overlay hidden">

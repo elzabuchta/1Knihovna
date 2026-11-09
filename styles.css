@@ -6,45 +6,57 @@
 
 /* --- CSS Variables / Color Themes --- */
 :root[data-theme="dark"] {
-  --bg-primary: #121212;
-  --bg-secondary: #1e1e1e;
-  --bg-card: #282828;
-  --bg-hover: #333333;
-  --text-main: #f5f5f7;
-  --text-muted: #a1a1a6;
-  --border-color: #38383a;
+  --bg-primary: #161514;
+  --bg-secondary: #211f1d;
+  --bg-card: #2b2825;
+  --bg-hover: #383430;
+  --text-main: #fbf7ee; /* Warm cream text */
+  --text-muted: #b5ada3;
+  --border-color: #453f3a;
 
-  --accent-color: #ff4500; /* Red-Orange */
-  --accent-hover: #e03d00;
+  --cream-accent: #fbeef1;
+  --cream-soft: #f4ecdf;
+  --cream-subtle: #2d2925;
+  --cream-badge-bg: #35302b;
+  --cream-border: #4d463f;
+
+  --accent-color: #ff521a; /* Warm bright vermilion */
+  --accent-hover: #e0420d;
   --accent-text: #ffffff;
 
   --star-color: #ffb400;
   --danger-color: #ff3b30;
-  --success-color: #34c759;
+  --success-color: #2ec057;
 
-  --shadow-chunky: 0 4px 0 #000000;
+  --shadow-chunky: 0 4px 0 #0d0c0b;
   --shadow-modal: 0 10px 30px rgba(0, 0, 0, 0.8);
 }
 
 :root[data-theme="light"] {
-  --bg-primary: #f2f2f7;
-  --bg-secondary: #ffffff;
-  --bg-card: #ffffff;
-  --bg-hover: #e5e5ea;
-  --text-main: #1c1c1e;
-  --text-muted: #6c6c70;
-  --border-color: #d1d1d6;
+  --bg-primary: #f8f5ee; /* Elegant warm cream */
+  --bg-secondary: #fffefb; /* Soft ivory cream */
+  --bg-card: #fffcf5; /* Delicate cream card */
+  --bg-hover: #f1ebd8;
+  --text-main: #282420; /* Deep coffee charcoal */
+  --text-muted: #756e64;
+  --border-color: #ded7c8; /* Creamy warm border */
 
-  --accent-color: #ff4500; /* Red-Orange */
-  --accent-hover: #e03d00;
+  --cream-accent: #fffaef;
+  --cream-soft: #f3ecdd;
+  --cream-subtle: #faf5eb;
+  --cream-badge-bg: #f5ede0;
+  --cream-border: #d4cbba;
+
+  --accent-color: #f24e13; /* Warm Red-Orange */
+  --accent-hover: #d63f0a;
   --accent-text: #ffffff;
 
-  --star-color: #ffb400;
-  --danger-color: #ff3b30;
-  --success-color: #34c759;
+  --star-color: #e59d00;
+  --danger-color: #e03228;
+  --success-color: #27ae50;
 
-  --shadow-chunky: 0 4px 0 #b0b0b8;
-  --shadow-modal: 0 10px 30px rgba(0, 0, 0, 0.2);
+  --shadow-chunky: 0 4px 0 #cfc7b6;
+  --shadow-modal: 0 10px 30px rgba(70, 50, 30, 0.15);
 }
 
 /* Base Reset */
@@ -365,7 +377,7 @@ body {
 
 /* --- SCREEN 1: MAIN MENU & INTRO BANNER --- */
 .intro-banner-card {
-  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-card) 100%);
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--cream-subtle) 100%);
   border: 2px solid var(--accent-color);
   border-radius: 16px;
   padding: 18px 20px;
@@ -704,7 +716,8 @@ body {
 }
 
 .legend-item {
-  background-color: rgba(255, 255, 255, 0.03);
+  background-color: var(--cream-subtle);
+  border: 1px solid var(--cream-border);
   padding: 8px 12px;
   border-radius: 8px;
   display: flex;
@@ -1462,6 +1475,213 @@ input:checked + .switch-slider:before {
 #loading-text {
   font-weight: 700;
   font-size: 15px;
+}
+
+/* --- LOTTERY SCREEN & WHEEL STYLING --- */
+.lottery-menu-btn {
+  background: linear-gradient(135deg, var(--bg-card) 0%, var(--cream-soft) 100%);
+  border-color: #e59d00;
+}
+
+:root[data-theme="dark"] .lottery-menu-btn {
+  background: linear-gradient(135deg, var(--bg-card) 0%, #352c21 100%);
+  border-color: #e59d00;
+}
+
+.lottery-card {
+  background-color: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: 20px;
+  padding: 16px;
+  box-shadow: var(--shadow-chunky);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+}
+
+.lottery-pool-header {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background-color: var(--bg-card);
+  border: 2px solid var(--border-color);
+  border-radius: 14px;
+  padding: 10px 14px;
+}
+
+.pool-select-row, .pool-stats-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.lottery-pool-count-text {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--accent-color);
+}
+
+.wheel-stage {
+  position: relative;
+  width: 320px;
+  height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 10px 0;
+}
+
+.wheel-canvas {
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 6px var(--cream-soft);
+}
+
+.wheel-pointer {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 32px;
+  color: #ff3b30;
+  text-shadow: 0 3px 6px rgba(0,0,0,0.4);
+  z-index: 20;
+  line-height: 1;
+}
+
+.wheel-center-cap {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 54px;
+  height: 54px;
+  background: radial-gradient(circle, #fff9e6 0%, #ffd166 100%);
+  border: 3px solid #b8860b;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+  z-index: 10;
+  pointer-events: none;
+}
+
+.wheel-actions {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.lottery-start-btn {
+  background-color: #28a745 !important;
+  color: #ffffff !important;
+  border-color: #1e7e34 !important;
+  font-size: 20px !important;
+  font-weight: 900 !important;
+  padding: 16px 48px !important;
+  letter-spacing: 1px;
+  border-radius: 30px !important;
+  box-shadow: 0 6px 0 #155724 !important;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.lottery-start-btn:hover {
+  background-color: #218838 !important;
+}
+
+.lottery-start-btn:active {
+  transform: translateY(4px) !important;
+  box-shadow: 0 2px 0 #155724 !important;
+}
+
+.lottery-start-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Confetti and Winner Celebration Overlay */
+.confetti-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 1001;
+}
+
+.lottery-winner-card {
+  position: relative;
+  z-index: 1002;
+  border: 4px solid #ffd700 !important;
+  background: radial-gradient(circle, var(--bg-card) 60%, var(--cream-soft) 100%) !important;
+  box-shadow: 0 0 50px rgba(255, 215, 0, 0.6), var(--shadow-modal) !important;
+  animation: winnerPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes winnerPop {
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.lottery-winner-badge {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 900;
+  color: #ffd700;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  letter-spacing: 0.5px;
+}
+
+.lottery-winner-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.winner-big-cover {
+  width: 140px;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 3px solid #ffd700;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  animation: coverPulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes coverPulse {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.05); }
+}
+
+.winner-title {
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.3;
+  color: var(--text-main);
+  max-width: 90%;
+}
+
+.winner-author {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent-color);
+}
+
+.winner-meta {
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
 /* Error Card */

@@ -2564,6 +2564,443 @@ function checkUrlSharedIsbn() {
   }
 }
 
+// ==========================================================================
+// LOTTERY WHEEL / NÁHODNÝ VÝBĚRCE KNIH
+// ==========================================================================
+
+let lotteryCurrentPool = [];
+let lotteryRecentWinners = []; // IDs of recently selected winners to avoid repeating
+let lotteryWheelAngle = 0;
+let isLotterySpinning = false;
+let lotterySelectedLibId = '__all__';
+let lotteryCustomSelectedBookIds = null; // null means auto by library, array means manual pick
+
+// Harmonious pastel & warm tones for lottery wheel slices
+const WHEEL_COLORS = [
+  '#FFB74D', // Soft Amber Orange
+  '#4DD0E1', // Soft Turquoise
+  '#81C784', // Soft Mint Green
+  '#BA68C8', // Soft Lilac Purple
+  '#FF8A65', // Soft Coral
+  '#4FC3F7', // Soft Sky Blue
+  '#DCE775', // Soft Lime Cream
+  '#F06292', // Soft Rose Pink
+  '#A1887F', // Soft Warm Taupe
+  '#4DB6AC'  // Soft Sage Teal
+];
+
+function openLotteryWheelScreen() {
+  navigateTo('screen-lottery-wheel');
+  populateLotteryLibraryDropdown();
+  refreshLotteryPool();
+  drawLotteryWheel();
+}
+
+function populateLotteryLibraryDropdown() {
+  const selectElem = document.getElementById('lottery-library-select');
+  if (!selectElem) return;
+
+  const libs = getStoredLibraries();
+  let html = `<option value="__all__" ${lotterySelectedLibId === '__all__' ? 'selected' : ''}>Všechny knihovny</option>`;
+  libs.forEach(l => {
+    html += `<option value="${l.id}" ${lotterySelectedLibId === l.id ? 'selected' : ''}>${escapeHtml(l.name)}</option>`;
+  });
+  selectElem.innerHTML = html;
+}
+
+function handleLotteryLibraryChange(event) {
+  lotterySelectedLibId = event.target.value;
+  lotteryCustomSelectedBookIds = null; // reset custom pick when changing library
+  lotteryRecentWinners = []; // reset recent winners on scope change
+  refreshLotteryPool();
+  drawLotteryWheel();
+}
+
+function refreshLotteryPool() {
+  const books = getStoredBooks();
+  let pool = [];
+
+  if (lotteryCustomSelectedBookIds && Array.isArray(lotteryCustomSelectedBookIds)) {
+    pool = books.filter(b => lotteryCustomSelectedBookIds.includes(b.id));
+  } else if (lotterySelectedLibId === '__all__') {
+    pool = [...books];
+  } else {
+    pool = books.filter(b => {
+      const libIds = Array.isArray(b.libraryIds) ? b.libraryIds : [b.libraryId || DEFAULT_LIBRARY_ID];
+      if (lotterySelectedLibId === DEFAULT_LIBRARY_ID && b.isFavorite) return true;
+      return libIds.includes(lotterySelectedLibId);
+    });
+  }
+
+  lotteryCurrentPool = pool;
+
+  const countElem = document.getElementById('lottery-pool-count');
+  if (countElem) {
+    countElem.innerText = `${formatBookCount(pool.length, 'cs')} v osudí`;
+  }
+
+  const startBtn = document.getElementById('lottery-start-btn');
+  if (startBtn) {
+    startBtn.disabled = pool.length === 0 || isLotterySpinning;
+  }
+}
+
+function openLotteryCustomPickModal() {
+  const modal = document.getElementById('modal-lottery-picker');
+  const listElem = document.getElementById('modal-lottery-books-list');
+  if (!modal || !listElem) return;
+
+  const books = getStoredBooks();
+  if (books.length === 0) {
+    alert("Nemáte v žádné knihovně uložené knihy. Nejdříve naskenujte nebo přidejte knihy!");
+    return;
+  }
+
+  const currentlyCheckedIds = lotteryCustomSelectedBookIds ? new Set(lotteryCustomSelectedBookIds) : new Set(lotteryCurrentPool.map(b => b.id));
+
+  let html = '';
+  books.forEach(b => {
+    const isChecked = currentlyCheckedIds.has(b.id) ? 'checked' : '';
+    const genre = BOOK_GENRES.find(g => g.id === (b.genre || 'roman')) || BOOK_GENRES[0];
+    html += `
+      <label class="library-checkbox-item" style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+          <input type="checkbox" value="${b.id}" class="lottery-book-check" ${isChecked} />
+          <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            <div style="font-size: 14px; font-weight: 700;">${escapeHtml(b.title)}</div>
+            <div style="font-size: 12px; color: var(--text-muted);">${escapeHtml(b.author || 'Autor neuveden')}</div>
+          </div>
+        </div>
+        <span class="genre-badge" style="background-color: ${genre.color}; color: #FFF; font-size: 10px; margin-left: 8px;">
+          ${escapeHtml(genre.name)}
+        </span>
+      </label>
+    `;
+  });
+
+  listElem.innerHTML = html;
+  modal.classList.remove('hidden');
+}
+
+function closeLotteryCustomPickModal() {
+  const modal = document.getElementById('modal-lottery-picker');
+  if (modal) modal.classList.add('hidden');
+}
+
+function selectLotteryAllBooks(shouldCheck) {
+  const cbs = document.querySelectorAll('.lottery-book-check');
+  cbs.forEach(cb => { cb.checked = !!shouldCheck; });
+}
+
+function applyLotteryCustomPick() {
+  const cbs = document.querySelectorAll('.lottery-book-check');
+  const selectedIds = [];
+  cbs.forEach(cb => {
+    if (cb.checked) selectedIds.push(cb.value);
+  });
+
+  if (selectedIds.length === 0) {
+    alert("Vyberte prosím alespoň 1 knihu do herního kola.");
+    return;
+  }
+
+  lotteryCustomSelectedBookIds = selectedIds;
+  lotteryRecentWinners = []; // Reset on pool reconfiguration
+  refreshLotteryPool();
+  drawLotteryWheel();
+  closeLotteryCustomPickModal();
+}
+
+// Draw Canvas Wheel of Fortune
+function drawLotteryWheel(currentAngle = lotteryWheelAngle) {
+  const canvas = document.getElementById('lottery-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const width = canvas.width;
+  const height = canvas.height;
+  const radius = width / 2;
+  const cx = width / 2;
+  const cy = height / 2;
+
+  ctx.clearRect(0, 0, width, height);
+
+  const numSlices = lotteryCurrentPool.length;
+
+  if (numSlices === 0) {
+    // Draw empty wheel message
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius - 4, 0, 2 * Math.PI);
+    ctx.fillStyle = '#f5ede0';
+    ctx.fill();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#ded7c8';
+    ctx.stroke();
+
+    ctx.fillStyle = '#756e64';
+    ctx.font = 'bold 16px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Žádné knihy v osudí', cx, cy);
+    ctx.restore();
+    return;
+  }
+
+  const arc = (2 * Math.PI) / numSlices;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(currentAngle);
+
+  for (let i = 0; i < numSlices; i++) {
+    const angle = i * arc;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, radius - 4, angle, angle + arc);
+    ctx.closePath();
+
+    // Fill harmonious pastel color
+    ctx.fillStyle = WHEEL_COLORS[i % WHEEL_COLORS.length];
+    ctx.fill();
+
+    // Subtle slice divider
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+
+    // Draw book title text along radius
+    ctx.save();
+    ctx.rotate(angle + arc / 2);
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#222222';
+    ctx.font = numSlices > 12 ? 'bold 11px -apple-system, sans-serif' : 'bold 13px -apple-system, sans-serif';
+
+    const book = lotteryCurrentPool[i];
+    let title = book.title || 'Kniha';
+    if (title.length > 18) {
+      title = title.substring(0, 16) + '…';
+    }
+
+    ctx.fillText(title, radius - 20, 0);
+    ctx.restore();
+  }
+
+  ctx.restore();
+
+  // Draw outer rim gold border
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius - 3, 0, 2 * Math.PI);
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = '#e5b84c';
+  ctx.stroke();
+  ctx.restore();
+}
+
+// Non-repeating selection algorithm & smooth spin animation
+function spinLotteryWheel() {
+  if (isLotterySpinning || lotteryCurrentPool.length === 0) return;
+
+  isLotterySpinning = true;
+  const startBtn = document.getElementById('lottery-start-btn');
+  if (startBtn) startBtn.disabled = true;
+
+  // Filter pool to exclude recent winners so it never repeats the same winner 5x in a row
+  let candidateIndices = [];
+  lotteryCurrentPool.forEach((book, index) => {
+    if (!lotteryRecentWinners.includes(book.id)) {
+      candidateIndices.push(index);
+    }
+  });
+
+  // If all books in pool have been recently won, reset the recent list except the very last one
+  if (candidateIndices.length === 0) {
+    const lastWinnerId = lotteryRecentWinners[lotteryRecentWinners.length - 1];
+    lotteryRecentWinners = lastWinnerId ? [lastWinnerId] : [];
+    candidateIndices = lotteryCurrentPool.map((_, idx) => idx).filter(idx => lotteryCurrentPool[idx].id !== lastWinnerId);
+    if (candidateIndices.length === 0) {
+      candidateIndices = lotteryCurrentPool.map((_, idx) => idx);
+    }
+  }
+
+  // Randomly pick a candidate
+  const winningSliceIndex = candidateIndices[Math.floor(Math.random() * candidateIndices.length)];
+  const winnerBook = lotteryCurrentPool[winningSliceIndex];
+
+  // Remember winner
+  lotteryRecentWinners.push(winnerBook.id);
+  // Keep history manageable
+  if (lotteryRecentWinners.length >= lotteryCurrentPool.length) {
+    lotteryRecentWinners.shift();
+  }
+
+  // Calculate target rotation angle
+  // Pointer is at TOP of wheel: -PI/2 in standard coords.
+  // When slice i lands under top pointer, (angle + i * arc + arc / 2) mod 2PI == 3PI / 2 (or -PI / 2).
+  const numSlices = lotteryCurrentPool.length;
+  const arc = (2 * Math.PI) / numSlices;
+  const sliceCenterAngle = winningSliceIndex * arc + arc / 2;
+
+  // Desired final canvas angle: (3 * Math.PI / 2 - sliceCenterAngle) mod 2*PI
+  const targetModAngle = (1.5 * Math.PI - sliceCenterAngle) % (2 * Math.PI);
+  const currentModAngle = lotteryWheelAngle % (2 * Math.PI);
+
+  let delta = targetModAngle - currentModAngle;
+  if (delta < 0) {
+    delta += 2 * Math.PI;
+  }
+
+  // Spin 5 to 7 full rotations plus delta for excitement
+  const totalSpins = 6;
+  const spinDelta = totalSpins * (2 * Math.PI) + delta;
+  const finalAngle = lotteryWheelAngle + spinDelta;
+
+  const duration = 4000; // 4 seconds of suspense
+  const startTime = performance.now();
+  const startAngle = lotteryWheelAngle;
+
+  function easeOutCubic(t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  function animate(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const easedProgress = easeOutCubic(progress);
+
+    lotteryWheelAngle = startAngle + spinDelta * easedProgress;
+    drawLotteryWheel(lotteryWheelAngle);
+
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      lotteryWheelAngle = finalAngle;
+      drawLotteryWheel(lotteryWheelAngle);
+      isLotterySpinning = false;
+      if (startBtn) startBtn.disabled = false;
+      showLotteryWinnerModal(winnerBook);
+    }
+  }
+
+  requestAnimationFrame(animate);
+}
+
+function showLotteryWinnerModal(book) {
+  const modal = document.getElementById('modal-lottery-winner');
+  const bodyElem = document.getElementById('lottery-winner-body');
+  if (!modal || !bodyElem) return;
+
+  const coverSrc = book.cover ? book.cover : '';
+  const bookSvgPlaceholder = `<div class="book-cover-placeholder winner-big-cover" style="display:flex;align-items:center;justify-content:center;"><svg class="svg-hero" viewBox="0 0 24 24"><path fill="currentColor" d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></svg></div>`;
+  const coverHtml = coverSrc
+    ? `<img src="${escapeHtml(coverSrc)}" alt="Obálka výherní knihy" class="winner-big-cover" onerror="handleCoverError(this)" />`
+    : bookSvgPlaceholder;
+
+  const genre = BOOK_GENRES.find(g => g.id === (book.genre || 'roman')) || BOOK_GENRES[0];
+
+  bodyElem.innerHTML = `
+    ${coverHtml}
+    <div class="winner-title">${escapeHtml(book.title)}</div>
+    <div class="winner-author">${escapeHtml(book.author || 'Autor neuveden')}</div>
+    <div class="winner-meta">
+      ${book.year ? `<span>Rok: ${escapeHtml(book.year)}</span>` : ''}
+      ${book.publisher ? `<span> • Nakladatelství: ${escapeHtml(book.publisher)}</span>` : ''}
+    </div>
+    <div style="margin-top: 6px;">
+      <span class="genre-pill" style="background-color: ${genre.color}; color: #FFF; font-size: 13px; padding: 4px 14px;">
+        Žánr: ${escapeHtml(genre.name)}
+      </span>
+    </div>
+    <p style="font-size: 13px; color: var(--text-muted); margin-top: 8px;">
+      Dnes ti osud vybral tuto knihu ke čtení! Užij si skvělý literární zážitek.
+    </p>
+  `;
+
+  modal.classList.remove('hidden');
+  startConfettiAnimation();
+}
+
+function closeLotteryWinnerModal() {
+  const modal = document.getElementById('modal-lottery-winner');
+  if (modal) modal.classList.add('hidden');
+  stopConfettiAnimation();
+}
+
+function spinLotteryAgain() {
+  closeLotteryWinnerModal();
+  setTimeout(() => {
+    spinLotteryWheel();
+  }, 250);
+}
+
+// Confetti Particle System
+let confettiAnimationId = null;
+let confettiParticles = [];
+
+function startConfettiAnimation() {
+  const canvas = document.getElementById('confetti-canvas');
+  if (!canvas) return;
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+
+  confettiParticles = [];
+  const colors = ['#FFD700', '#FF4500', '#28A745', '#007BFF', '#E83E8C', '#6F42C1', '#20C997', '#FD7E14'];
+
+  for (let i = 0; i < 140; i++) {
+    confettiParticles.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height - canvas.height,
+      r: Math.random() * 7 + 4,
+      d: Math.random() * 40 + 10,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      tilt: Math.floor(Math.random() * 10) - 10,
+      tiltAngleIncremental: (Math.random() * 0.07) + 0.05,
+      tiltAngle: 0
+    });
+  }
+
+  function renderConfetti() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    confettiParticles.forEach(p => {
+      p.tiltAngle += p.tiltAngleIncremental;
+      p.y += (Math.cos(p.d) + 3 + p.r / 2) * 1.5;
+      p.tilt = Math.sin(p.tiltAngle - (p.r / 3)) * 15;
+
+      ctx.beginPath();
+      ctx.lineWidth = p.r;
+      ctx.strokeStyle = p.color;
+      ctx.moveTo(p.x + p.tilt + p.r / 4, p.y);
+      ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r / 4);
+      ctx.stroke();
+
+      if (p.y > canvas.height) {
+        p.x = Math.random() * canvas.width;
+        p.y = -20;
+      }
+    });
+
+    confettiAnimationId = requestAnimationFrame(renderConfetti);
+  }
+
+  if (confettiAnimationId) cancelAnimationFrame(confettiAnimationId);
+  renderConfetti();
+}
+
+function stopConfettiAnimation() {
+  if (confettiAnimationId) {
+    cancelAnimationFrame(confettiAnimationId);
+    confettiAnimationId = null;
+  }
+  const canvas = document.getElementById('confetti-canvas');
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+}
+
 // Global initialization
 document.addEventListener('DOMContentLoaded', () => {
   const currentLang = getCurrentLang();
