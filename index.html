@@ -141,6 +141,17 @@
             <span data-i18n="or_manual">nebo zadejte ručně</span>
           </div>
 
+          <!-- Input Mode Switcher: ISBN vs Název knihy -->
+          <div class="search-mode-tabs">
+            <button id="tab-mode-isbn" class="search-mode-tab active" onclick="switchSearchMode('isbn')">
+              Vyhledat dle ISBN
+            </button>
+            <button id="tab-mode-title" class="search-mode-tab" onclick="switchSearchMode('title')">
+              Hledat dle názvu knihy
+            </button>
+          </div>
+
+          <!-- ISBN Search Form -->
           <form id="manual-isbn-form" class="manual-input-form" onsubmit="handleManualIsbnSubmit(event)">
             <label for="isbn-input" class="input-label" data-i18n="isbn_label">Číslo ISBN nebo EAN kód:</label>
             <div class="input-group">
@@ -157,6 +168,24 @@
               </button>
             </div>
             <small class="input-hint" data-i18n="isbn_hint">Funguje vždy: zadejte 10 nebo 13 číslic (s pomlčkami, mezerami i slovem ISBN)</small>
+          </form>
+
+          <!-- Title Search Form (Knihovny.cz multi-editions) -->
+          <form id="title-search-form" class="manual-input-form hidden" onsubmit="handleTitleSearchSubmit(event)">
+            <label for="title-search-input" class="input-label">Název hledané knihy:</label>
+            <div class="input-group">
+              <input
+                type="text"
+                id="title-search-input"
+                class="chunky-input"
+                placeholder="např. Babička, Saturnin, 1984..."
+                autocomplete="off"
+              />
+              <button type="submit" class="chunky-btn primary-btn title-search-btn">
+                <span>Hledat</span> <svg class="svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+              </button>
+            </div>
+            <small class="input-hint">Najde knihu v katalogu Knihovny.cz včetně různých vydání a nakladatelství</small>
           </form>
         </div>
       </section>
@@ -401,6 +430,30 @@
         <div class="modal-actions">
           <button class="chunky-btn outline-btn" onclick="closeLoginModal()">
             <span data-i18n="btn_close">Zavřít</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- MODAL: MULTIPLE EDITIONS FOUND (Title search) -->
+    <div id="modal-editions-result" class="modal-overlay hidden">
+      <div class="modal-card chunky-modal" style="max-height: 85vh;">
+        <div class="modal-header">
+          <h3>Nalezená vydání knihy</h3>
+          <p style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">Vyberte vydání, které chcete uložit do knihovny:</p>
+        </div>
+
+        <div style="margin-top: 6px; text-align: left;">
+          <label class="input-label" for="editions-target-library-select">Uložit do knihovny:</label>
+          <select id="editions-target-library-select" class="chunky-select" style="width: 100%;"></select>
+        </div>
+
+        <div class="modal-body" id="modal-editions-list" style="overflow-y: auto; max-height: 50vh; display: flex; flex-direction: column; gap: 10px; margin-top: 10px;"></div>
+
+        <div class="modal-actions" style="margin-top: 10px;">
+          <button class="chunky-btn outline-btn" onclick="closeEditionsModal()">
+            Zavřít
           </button>
         </div>
       </div>
