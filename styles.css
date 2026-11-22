@@ -1775,3 +1775,12 @@ input:checked + .switch-slider:before {
 .view-toggle{display:inline-flex;flex-shrink:0;overflow:hidden;border:2px solid var(--cream-border);border-radius:10px;background:var(--bg-card);box-shadow:0 3px 0 var(--cream-border)}.view-toggle-btn{width:34px;min-height:32px;border:0;border-right:1px solid var(--cream-border);background:transparent;color:var(--text-main);font-size:18px;font-weight:900;cursor:pointer}.view-toggle-btn:last-child{border-right:0}.view-toggle-btn.active{background:var(--accent-color);color:var(--accent-text)}
 button.genre-badge{border:1px solid var(--cream-border);cursor:pointer;font-family:inherit}.genre-badge:hover{filter:brightness(1.08);transform:translateY(-1px)}.book-card,.monthly-book-card{cursor:pointer}.kb-detail-description{margin-top:16px;color:var(--text-muted);line-height:1.55}
 .books-list.kb-grid,.monthly-books-list.kb-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:start;gap:10px}.books-list.kb-grid .book-card,.monthly-books-list.kb-grid .monthly-book-card{display:block;min-width:0;padding:8px}.books-list.kb-grid .book-cover,.books-list.kb-grid .book-cover-placeholder,.monthly-books-list.kb-grid .book-cover,.monthly-books-list.kb-grid .book-cover-placeholder{width:100%;height:142px;margin:0 0 8px;border-radius:8px}.books-list.kb-grid .book-info,.monthly-books-list.kb-grid .book-info{padding:0;min-width:0}.books-list.kb-grid .book-title,.monthly-books-list.kb-grid .book-title{margin:0;font-size:12px;line-height:1.25;text-align:center;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}.books-list.kb-grid .book-author,.books-list.kb-grid .book-meta,.books-list.kb-grid .genre-badge,.books-list.kb-grid .book-actions-col,.monthly-books-list.kb-grid .book-author,.monthly-books-list.kb-grid .book-meta,.monthly-books-list.kb-grid .genre-badge,.monthly-books-list.kb-grid .monthly-book-card p,.monthly-books-list.kb-grid .comment-input-area,.monthly-books-list.kb-grid .reviews-list{display:none}.monthly-books-list.kb-grid .monthly-book-main{display:block}
+
+
+/* Lottery menu card must match the standard menu cards exactly. */
+.app-container .chunky-btn.lottery-menu-btn,
+:root[data-theme="light"] .app-container .chunky-btn.lottery-menu-btn,
+:root[data-theme="dark"] .app-container .chunky-btn.lottery-menu-btn {
+  border-color: var(--border-color) !important;
+  background: var(--bg-secondary) !important;
+}
