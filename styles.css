@@ -1798,3 +1798,103 @@ button.genre-badge{border:1px solid var(--cream-border);cursor:pointer;font-fami
   border: 2px solid var(--border-color) !important;
   box-shadow: var(--shadow-chunky) !important;
 }
+
+
+/* Collapsible filters keep the library view focused and readable. */
+.library-filter-menu {
+  border: 2px solid var(--border-color);
+  border-radius: 18px;
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-chunky);
+  overflow: hidden;
+}
+
+.filter-menu-trigger {
+  width: 100%;
+  min-height: 66px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 0;
+  background: var(--bg-card);
+  color: var(--text-main);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.filter-menu-trigger:hover,
+.filter-menu-trigger.is-open {
+  background: var(--bg-hover);
+}
+
+.filter-menu-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--accent-color);
+  color: var(--accent-text);
+  font-size: 22px;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+
+.filter-menu-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.filter-menu-copy strong {
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.filter-menu-copy small {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.filter-menu-arrow {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--accent-color);
+}
+
+.library-filters-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px;
+  border-top: 2px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.library-filters-panel.hidden {
+  display: none;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-group-title {
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.filter-group .chunky-select {
+  width: 100%;
+}
+
+.filter-group .genre-tabs-container {
+  margin: 0;
+}
