@@ -1,16 +1,14 @@
 <!DOCTYPE html>
-<html lang="cs" data-theme="dark">
+<html lang="cs" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#121212">
+  <meta name="theme-color" content="#f6eddd">
   <title>Knihovníček</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-  <!-- Google Sign-In API -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -44,16 +42,6 @@
             <p class="quote-text" id="banner-quote-text">„Kniha musí být sekerou na zamrzlé moře v nás.“</p>
             <span class="quote-author" id="banner-quote-author">— Franz Kafka</span>
           </div>
-        </div>
-
-        <!-- User Login Profile Status Bar -->
-        <div class="user-auth-bar" id="user-auth-bar">
-          <div class="user-info" id="user-info-display">
-            <span class="user-status-text" data-i18n="not_logged_in">Nejste přihlášeni</span>
-          </div>
-          <button class="chunky-btn mini-btn primary-btn" onclick="openLoginModal()" id="login-trigger-btn" data-i18n="login_btn">
-            Přihlásit se
-          </button>
         </div>
 
         <!-- Rectangular Menu Buttons Stack -->
@@ -425,16 +413,6 @@
             </select>
           </div>
 
-          <!-- Google Cloud Config Security Notice -->
-          <div class="setting-item">
-            <div class="setting-info">
-              <span class="setting-title" data-i18n="setting_security_title">Google Přihlášení & Zabezpečení</span>
-              <span class="setting-desc" data-i18n="setting_security_desc">
-                Pro běh Google OAuth na vaší doméně GitHub Pages přidejte URL vaší stránky (např. https://username.github.io) do Google Cloud Console -> Credentials -> Authorized JavaScript origins.
-              </span>
-            </div>
-          </div>
-
           <div class="setting-item">
             <div class="setting-info">
               <span class="setting-title" data-i18n="setting_app_info">Informace o aplikaci</span>
@@ -445,50 +423,6 @@
       </section>
 
     </main>
-
-
-    <!-- LOGIN MODAL -->
-    <div id="modal-login" class="modal-overlay hidden">
-      <div class="modal-card chunky-modal">
-        <div class="modal-header">
-          <h3 data-i18n="login_modal_title">Přihlášení do aplikace</h3>
-        </div>
-
-        <div class="modal-body" style="text-align: center; padding: 10px 0;">
-          <p style="margin-bottom: 16px; color: var(--text-muted);" data-i18n="login_modal_desc">
-            Přihlaste se pomocí svého Google účtu pro synchronizaci a správu knihovny.
-          </p>
-
-          <!-- Google GSI Button Container -->
-          <div onclick="handleGoogleSignInClick()" style="cursor: pointer;">
-            <div id="g_id_onload"
-                 data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
-                 data-callback="handleGoogleSignInResponse"
-                 data-auto_prompt="false">
-            </div>
-            <div class="g_id_signin" data-type="standard" data-size="large" data-theme="filled_blue" data-text="sign_in_with" data-shape="rectangular" data-logo_alignment="left"></div>
-          </div>
-
-          <!-- Fallback Simulated Login -->
-          <div class="divider" style="margin: 20px 0;">
-            <span data-i18n="or_quick_demo">nebo demo přihlášení</span>
-          </div>
-
-          <form onsubmit="handleDemoLoginSubmit(event)" style="display: flex; flex-direction: column; gap: 10px;">
-            <input type="email" id="demo-email-input" class="chunky-input" placeholder="Váš e-mail" required />
-            <button type="submit" class="chunky-btn primary-btn">
-              Přihlásit se
-            </button>
-          </form>
-        </div>
-
-        <div class="modal-actions">
-          <button class="chunky-btn outline-btn" onclick="closeLoginModal()">
-            <span data-i18n="btn_close">Zavřít</span>
-          </button>
-        </div>
-      </div>
-    </div>
 
 
     <!-- MODAL: MULTIPLE EDITIONS FOUND (Title search) -->
