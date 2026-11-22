@@ -7,7 +7,6 @@ const STORAGE_KEY_LIBRARIES = 'knihovnicek_libraries';
 const STORAGE_KEY_ACTIVE_LIB = 'knihovnicek_active_lib';
 const STORAGE_KEY_REVIEWS = 'knihovnicek_reviews';
 const STORAGE_KEY_FOLLOWS = 'knihovnicek_follows';
-const STORAGE_KEY_USER = 'knihovnicek_user';
 
 const DEFAULT_LIBRARY_ID = 'lib_favorites';
 const DEFAULT_LIBRARY_NAME = 'Oblíbené knihy';
@@ -151,7 +150,12 @@ const LITERARY_QUOTES = [
   { text_cs: "„Nemilovat knihy znamená nemilovat moudrost. Nemilovat moudrost však znamená stávat se hluprákem.“", text_pl: "„Nie kochać książek to nie kochać mądrości.”", text_en: "“Not to love books is not to love wisdom.”", author: "— Jan Amos Komenský" },
   { text_cs: "„Sober sobě světlem, člověče, a čti knihy.“", text_pl: "„Bądź sobie światłem i czytaj książki.”", text_en: "“Be a light unto yourself and read books.”", author: "— Karel Čapek" },
   { text_cs: "„Dobré knihy neprozradí všechna svá tajemství najednou.“", text_pl: "„Dobre książki nie zdradzają wszystkich swoich sekretów naraz.”", text_en: "“Good books do not surrender all their secrets at once.”", author: "— Stephen King" },
-  { text_cs: "„Dům bez knih je jako tělo bez duše.“", text_pl: "„Dom bez książek jest jak ciało bez duszy.”", text_en: "“A room without books is like a body without a soul.”", author: "— Marcus Tullius Cicero" }
+  { text_cs: "„Dům bez knih je jako tělo bez duše.“", text_pl: "„Dom bez książek jest jak ciało bez duszy.”", text_en: "“A room without books is like a body without a soul.”", author: "— Marcus Tullius Cicero" },
+  { text_cs: "„Vždy jsem si představoval ráj jako knihovnu.“", text_pl: "„Zawsze wyobrażałem sobie raj jako bibliotekę.”", text_en: "“I have always imagined that Paradise will be a kind of library.”", author: "— Jorge Luis Borges" },
+  { text_cs: "„Nemusíte pálit knihy, abyste zničili kulturu. Stačí přimět lidi, aby je přestali číst.“", text_pl: "„Nie trzeba palić książek, aby zniszczyć kulturę. Wystarczy sprawić, by ludzie przestali je czytać.”", text_en: "“You don't have to burn books to destroy a culture. Just get people to stop reading them.”", author: "— Ray Bradbury" },
+  { text_cs: "„Ne každý, kdo bloudí, je ztracen.“", text_pl: "„Nie każdy, kto błądzi, jest zagubiony.”", text_en: "“Not all those who wander are lost.”", author: "— J. R. R. Tolkien" },
+  { text_cs: "„Neexistuje větší utrpení než nosit nevypověděný příběh v sobě.“", text_pl: "„Nie ma większej udręki niż nosić w sobie niewypowiedzianą historię.”", text_en: "“There is no greater agony than bearing an untold story inside you.”", author: "— Maya Angelou" },
+  { text_cs: "„Čtete-li jen knihy, které čtou všichni ostatní, můžete myslet jen to, co myslí všichni ostatní.“", text_pl: "„Jeśli czytasz tylko książki, które czytają wszyscy inni, możesz myśleć tylko to, co myślą wszyscy inni.”", text_en: "“If you only read the books that everyone else is reading, you can only think what everyone else is thinking.”", author: "— Haruki Murakami" }
 ];
 let currentQuoteIndex = 0;
 
@@ -180,10 +184,6 @@ const TRANSLATIONS = {
   cs: {
     quote_text: "„Kniha musí být sekerou na zamrzlé moře v nás.“",
     quote_author: "— Franz Kafka",
-    not_logged_in: "Nejste přihlášeni",
-    logged_in_as: "Přihlášen jako",
-    login_btn: "Přihlásit se",
-    logout_btn: "Odhlásit",
     menu_scan_title: "Skenovat / Zadat ISBN",
     menu_scan_desc: "Naskenujte kód fotoaparátem nebo zadejte ručně",
     menu_library_title: "Moje Knihovny",
@@ -219,14 +219,9 @@ const TRANSLATIONS = {
     setting_theme_title: "Režim zobrazení",
     setting_lang_title: "Jazyk aplikace",
     setting_lang_desc: "Vyberte preferovaný jazyk rozhraní",
-    setting_security_title: "Google Přihlášení & Zabezpečení",
-    setting_security_desc: "Pro běh Google OAuth na vaší doméně GitHub Pages přidejte URL vaší stránky (např. https://username.github.io) do Google Cloud Console -> Credentials -> Authorized JavaScript origins.",
     setting_app_info: "Informace o aplikaci",
     theme_dark: "Tmavý režim",
     theme_light: "Světlý režim",
-    login_modal_title: "Přihlášení do aplikace",
-    login_modal_desc: "Přihlaste se pomocí svého Google účtu pro synchronizaci a správu knihovny.",
-    or_quick_demo: "nebo demo přihlášení",
     btn_close: "Zavřít",
     book_found_title: "Nalezená kniha",
     duplicate_warning_text: "Tato kniha už je ve vaší knihovně!",
@@ -247,10 +242,6 @@ const TRANSLATIONS = {
   pl: {
     quote_text: "„Książka musi być siekierą na zamarznięte morze w nas.”",
     quote_author: "— Franz Kafka",
-    not_logged_in: "Nie jesteś zalogowany",
-    logged_in_as: "Zalogowany jako",
-    login_btn: "Zaloguj się",
-    logout_btn: "Wyloguj",
     menu_scan_title: "Skanuj / Wpisz ISBN",
     menu_scan_desc: "Zeskanuj kod aparatem lub wpisz ręcznie",
     menu_library_title: "Moja Biblioteka",
@@ -286,14 +277,9 @@ const TRANSLATIONS = {
     setting_theme_title: "Tryb wyświetlania",
     setting_lang_title: "Język aplikacji",
     setting_lang_desc: "Wybierz preferowany język interfejsu",
-    setting_security_title: "Google Logowanie i Bezpieczeństwo",
-    setting_security_desc: "Aby Google OAuth działało na GitHub Pages, dodaj URL strony w Google Cloud Console -> Credentials -> Authorized JavaScript origins.",
     setting_app_info: "Informacje o aplikacji",
     theme_dark: "Tryb ciemny",
     theme_light: "Tryb jasny",
-    login_modal_title: "Logowanie do aplikacji",
-    login_modal_desc: "Zaloguj się kontem Google, aby synchronizować bibliotekę.",
-    or_quick_demo: "lub logowanie demo",
     btn_close: "Zamknij",
     book_found_title: "Znaleziona książka",
     duplicate_warning_text: "Ta książka jest już w Twojej bibliotece!",
@@ -314,10 +300,6 @@ const TRANSLATIONS = {
   en: {
     quote_text: "“A book must be the axe for the frozen sea within us.”",
     quote_author: "— Franz Kafka",
-    not_logged_in: "Not logged in",
-    logged_in_as: "Logged in as",
-    login_btn: "Log in",
-    logout_btn: "Log out",
     menu_scan_title: "Scan / Enter ISBN",
     menu_scan_desc: "Scan barcode with camera or enter manually",
     menu_library_title: "My Library",
@@ -353,14 +335,9 @@ const TRANSLATIONS = {
     setting_theme_title: "Display Mode",
     setting_lang_title: "App Language",
     setting_lang_desc: "Select preferred interface language",
-    setting_security_title: "Google Sign-In & Security",
-    setting_security_desc: "To run Google OAuth on GitHub Pages, add your URL (e.g. https://username.github.io) in Google Cloud Console -> Credentials -> Authorized JavaScript origins.",
     setting_app_info: "App Information",
     theme_dark: "Dark mode",
     theme_light: "Light mode",
-    login_modal_title: "Sign in to App",
-    login_modal_desc: "Sign in with your Google account to manage your library.",
-    or_quick_demo: "or quick demo login",
     btn_close: "Close",
     book_found_title: "Book Found",
     duplicate_warning_text: "This book is already in your library!",
@@ -411,6 +388,78 @@ const RECOMMENDED_BOOKS = [
     year: "2014",
     cover: "https://upload.wikimedia.org/wikipedia/commons/7/7d/The_Little_Prince_1943_edition_cover.jpg",
     description: "Světoznámé filozofické dílo o přátelství, lásce a lidských hodnotách."
+  },
+  {
+    id: "rec_4",
+    isbn: "9788025223833",
+    title: "Duna",
+    author: "Frank Herbert",
+    publisher: "Baronet",
+    year: "2021",
+    genre: "Sci-fi",
+    bestseller: true,
+    cover: "",
+    description: "Vesmírná sága o moci, ekologii a osudu planety Arrakis."
+  },
+  {
+    id: "rec_5",
+    isbn: "9788076615518",
+    title: "Kde zpívají raci",
+    author: "Delia Owens",
+    publisher: "Jota",
+    year: "2022",
+    genre: "Román",
+    bestseller: true,
+    cover: "",
+    description: "Citlivý příběh dospívání, přírody a tajemství v močálech Severní Karolíny."
+  },
+  {
+    id: "rec_6",
+    isbn: "9788073068577",
+    title: "Muži, kteří nenávidí ženy",
+    author: "Stieg Larsson",
+    publisher: "Host",
+    year: "2020",
+    genre: "Krimi",
+    bestseller: true,
+    cover: "",
+    description: "První díl strhující severské detektivní série Millennium."
+  },
+  {
+    id: "rec_7",
+    isbn: "9788020421043",
+    title: "Harry Potter a Kámen mudrců",
+    author: "J. K. Rowling",
+    publisher: "Albatros",
+    year: "2023",
+    genre: "Fantasy",
+    bestseller: true,
+    cover: "",
+    description: "Kouzelnické dobrodružství, které otevřelo jednu z nejúspěšnějších knižních sérií."
+  },
+  {
+    id: "rec_8",
+    isbn: "9788076622400",
+    title: "Šifra mistra Leonarda",
+    author: "Dan Brown",
+    publisher: "Argo",
+    year: "2022",
+    genre: "Thriller",
+    bestseller: true,
+    cover: "",
+    description: "Napínavé pátrání po tajemství ukrytém v umění, historii a symbolech."
+  },
+  {
+    id: "rec_9",
+    isbn: "9788072075186",
+    title: "Pýcha a předsudek",
+    author: "Jane Austenová",
+    publisher: "Odeon",
+    year: "2021",
+    genre: "Romantika",
+    bestseller: true,
+    cover: "",
+    description: "Vtipná a nadčasová klasika o lásce, rodině a prvních dojmech."
   }
 ];
 
@@ -675,8 +724,6 @@ function setLanguage(lang) {
 
   // Update quote in banner
   updateBannerQuoteDisplay();
-
-  updateUserAuthBar();
 }
 
 function handleLanguageChange(event) {
@@ -691,7 +738,7 @@ function handleLanguageChange(event) {
 // --- THEME ENGINE ---
 
 function initTheme() {
-  const savedTheme = localStorage.getItem(STORAGE_KEY_THEME) || 'dark';
+  const savedTheme = localStorage.getItem(STORAGE_KEY_THEME) || 'light';
   setTheme(savedTheme);
 }
 
@@ -1435,98 +1482,6 @@ function discardCurrentBook() {
 
 
 // --- USER AUTH & GOOGLE SIGN-IN ---
-
-function getStoredUser() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_USER);
-    return raw ? JSON.parse(raw) : null;
-  } catch (e) {
-    return null;
-  }
-}
-
-function saveUser(userObj) {
-  if (userObj) {
-    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(userObj));
-  } else {
-    localStorage.removeItem(STORAGE_KEY_USER);
-  }
-  updateUserAuthBar();
-}
-
-function updateUserAuthBar() {
-  const user = getStoredUser();
-  const displayElem = document.getElementById('user-info-display');
-  const triggerBtn = document.getElementById('login-trigger-btn');
-
-  const lang = getCurrentLang();
-  const t = TRANSLATIONS[lang] || TRANSLATIONS.cs;
-
-  if (user && user.email) {
-    displayElem.innerHTML = `<span class="user-logged-in-name">👤 ${escapeHtml(user.name || user.email)}</span>`;
-    if (triggerBtn) {
-      triggerBtn.innerText = t.logout_btn;
-      triggerBtn.onclick = handleLogout;
-    }
-  } else {
-    displayElem.innerHTML = `<span class="user-status-text">${t.not_logged_in}</span>`;
-    if (triggerBtn) {
-      triggerBtn.innerText = t.login_btn;
-      triggerBtn.onclick = openLoginModal;
-    }
-  }
-}
-
-function openLoginModal() {
-  const modal = document.getElementById('modal-login');
-  if (modal) modal.classList.remove('hidden');
-}
-
-function closeLoginModal() {
-  const modal = document.getElementById('modal-login');
-  if (modal) modal.classList.add('hidden');
-}
-
-function handleDemoLoginSubmit(event) {
-  event.preventDefault();
-  const emailElem = document.getElementById('demo-email-input');
-  if (!emailElem || !emailElem.value) return;
-
-  saveUser({
-    email: emailElem.value,
-    name: emailElem.value.split('@')[0]
-  });
-
-  closeLoginModal();
-}
-
-function handleGoogleSignInClick() {
-  alert("Pro aktivaci Google přihlášení zadejte váš platný Google Client ID v souboru index.html (místo YOUR_GOOGLE_CLIENT_ID).\n\nPro vyzkoušení funkce přihlášení použijte Demo přihlášení níže!");
-}
-
-function handleGoogleSignInResponse(response) {
-  try {
-    // Decode Google JWT credential payload
-    const base64Url = response.credential.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-    const payload = JSON.parse(jsonPayload);
-
-    saveUser({
-      email: payload.email,
-      name: payload.name || payload.given_name || payload.email
-    });
-
-    closeLoginModal();
-  } catch (e) {
-    console.error("Google sign-in parse error:", e);
-  }
-}
-
-function handleLogout() {
-  saveUser(null);
-}
-
 
 // --- LIBRARIES & MULTI-LIBRARY MANAGEMENT ---
 
@@ -2299,7 +2254,7 @@ function renderMonthlyBooks() {
           <div class="book-info">
             <div class="book-title">${escapeHtml(book.title)}</div>
             <div class="book-author">${escapeHtml(book.author)}</div>
-            <div class="book-meta"><span>${escapeHtml(book.publisher)} (${escapeHtml(book.year)})</span></div>
+            <div class="book-meta"><span>${escapeHtml(book.publisher)} (${escapeHtml(book.year)})</span>${book.genre ? `<span class="genre-badge">${escapeHtml(book.genre)}</span>` : ''}</div>
             <p style="font-size: 12px; margin-top: 6px; color: var(--text-muted);">${escapeHtml(book.description)}</p>
           </div>
         </div>
