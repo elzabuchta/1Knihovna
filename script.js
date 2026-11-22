@@ -25,6 +25,19 @@ function handleSortChange(event) {
   renderLibrary();
 }
 
+function toggleLibraryFilters() {
+  const panel = document.getElementById('library-filters-panel');
+  const toggle = document.getElementById('library-filters-toggle');
+  const arrow = document.getElementById('library-filters-arrow');
+  if (!panel || !toggle) return;
+
+  const isOpening = panel.classList.contains('hidden');
+  panel.classList.toggle('hidden', !isOpening);
+  toggle.setAttribute('aria-expanded', String(isOpening));
+  toggle.classList.toggle('is-open', isOpening);
+  if (arrow) arrow.textContent = isOpening ? '⌃' : '⌄';
+}
+
 function moveBookInLibrary(bookId, direction, event) {
   if (event) event.stopPropagation();
 
