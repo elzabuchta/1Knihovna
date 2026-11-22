@@ -1784,3 +1784,17 @@ button.genre-badge{border:1px solid var(--cream-border);cursor:pointer;font-fami
   border-color: var(--border-color) !important;
   background: var(--bg-secondary) !important;
 }
+
+
+/* Main-menu borders: scanner and lottery must match Recommended books. */
+:root[data-theme="light"] .menu-buttons-stack > .chunky-btn.primary-btn.rect-btn,
+:root[data-theme="light"] .menu-buttons-stack > .chunky-btn.lottery-menu-btn {
+  border: 2px solid #d4ad79 !important;
+  box-shadow: var(--shadow-chunky) !important;
+}
+
+:root[data-theme="dark"] .menu-buttons-stack > .chunky-btn.primary-btn.rect-btn,
+:root[data-theme="dark"] .menu-buttons-stack > .chunky-btn.lottery-menu-btn {
+  border: 2px solid var(--border-color) !important;
+  box-shadow: var(--shadow-chunky) !important;
+}
